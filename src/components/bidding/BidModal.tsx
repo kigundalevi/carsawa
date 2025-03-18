@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -14,7 +14,7 @@ export function BidModal({ isOpen, onClose, carTitle, currentPrice, onSubmitBid 
   const [bidAmount, setBidAmount] = useState<number>(currentPrice);
   const [error, setError] = useState<string>('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (bidAmount <= currentPrice) {
       setError('Bid amount must be higher than the current price');

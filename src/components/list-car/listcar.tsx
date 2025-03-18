@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, FormEvent, ChangeEvent } from 'react';
 import { Camera, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,10 +24,10 @@ export function ListCarForm() {
     mileage: 0,
     condition: 'Good',
     description: '',
-    images: ['/api/placeholder/400/300']
+    images: ['https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=800&q=80']
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -40,11 +40,11 @@ export function ListCarForm() {
     // For now, we'll just add a placeholder
     setFormData(prev => ({
       ...prev,
-      images: [...prev.images, '/api/placeholder/400/300']
+      images: [...prev.images, 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=800&q=80']
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
@@ -64,6 +64,16 @@ export function ListCarForm() {
       };
       
       localStorage.setItem('carInventory', JSON.stringify([...existingCars, newCar]));
+      
+      // Add to recent activities
+      const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
+      const newActivity = {
+        id: Date.now().toString(),
+        message: `New car listed: ${formData.title}`,
+        time: 'Just now',
+        type: 'listing'
+      };
+      localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
       
       setIsSubmitting(false);
       navigate('/inventory');

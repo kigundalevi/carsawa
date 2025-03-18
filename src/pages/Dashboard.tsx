@@ -1,49 +1,73 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { Car, Gavel, TrendingUp, DollarSign } from 'lucide-react';
 import { StatCard } from '../components/dashboard/StatCard';
 import { BidCard } from '../components/dashboard/BidCard';
 import { ActivityCard } from '../components/dashboard/ActivityCard';
 
-// Sample data - In a real app, this would come from an API
-const activeBids = [
-  {
-    id: '1',
-    carName: '2019 Toyota Fortuner',
-    amount: 3500000,
-    timeLeft: '2h 15m',
-    image: 'https://images.unsplash.com/photo-1625231334168-35067f8853ed?auto=format&fit=crop&w=300&q=80'
-  },
-  {
-    id: '2',
-    carName: '2020 Honda CR-V',
-    amount: 2800000,
-    timeLeft: '4h 30m',
-    image: 'https://images.unsplash.com/photo-1568844293986-8d0400bd4745?auto=format&fit=crop&w=300&q=80'
-  }
-];
+interface Bid {
+  id: string;
+  carId: string;
+  carName: string;
+  amount: number;
+  timeLeft: string;
+  image: string;
+  status?: 'pending' | 'accepted' | 'rejected';
+}
 
-const recentActivities = [
-  {
-    id: '1',
-    message: 'New bid placed on 2019 Toyota Fortuner',
-    time: '15 minutes ago',
-    type: 'bid' as const
-  },
-  {
-    id: '2',
-    message: 'Successfully sold 2018 Mazda CX-5',
-    time: '2 hours ago',
-    type: 'sale' as const
-  },
-  {
-    id: '3',
-    message: 'Listed 2021 BMW X3 for sale',
-    time: '4 hours ago',
-    type: 'listing' as const
-  }
-];
+interface Activity {
+  id: string;
+  message: string;
+  time: string;
+  type: 'bid' | 'sale' | 'listing';
+}
 
 export function Dashboard() {
+  const [activeBids, setActiveBids] = useState<Bid[]>([]);
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+  const [stats, setStats] = useState({
+    totalListings: 0,
+    activeBids: 0,
+    salesThisMonth: 6,
+    revenue: '4.2M'
+  });
+
+  useEffect(() => {
+    // Load active bids from localStorage
+    const storedBids = localStorage.getItem('activeBids');
+    if (storedBids) {
+      setActiveBids(JSON.parse(storedBids));
+    }
+
+    // Load recent activities from localStorage
+    const storedActivities = localStorage.getItem('recentActivities');
+    if (storedActivities) {
+      setRecentActivities(JSON.parse(storedActivities));
+    } else {
+      // Set default activities if none exist
+      const defaultActivities = [
+        {
+          id: '1',
+          message: 'Welcome to your dashboard',
+          time: 'Just now',
+          type: 'listing' as const
+        }
+      ];
+      setRecentActivities(defaultActivities);
+      localStorage.setItem('recentActivities', JSON.stringify(defaultActivities));
+    }
+
+    // Count total listings from localStorage
+    const carInventory = JSON.parse(localStorage.getItem('carInventory') || '[]');
+    
+    // Update stats
+    setStats({
+      totalListings: carInventory.length,
+      activeBids: storedBids ? JSON.parse(storedBids).length : 0,
+      salesThisMonth: 6,
+      revenue: '4.2M'
+    });
+  }, []);
+
   return (
     <div className="space-y-8">
       <div>
@@ -54,25 +78,25 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Listings"
-          value="24"
+          value={stats.totalListings.toString()}
           icon={Car}
           trend={{ value: 12, isPositive: true }}
         />
         <StatCard
           title="Active Bids"
-          value="8"
+          value={stats.activeBids.toString()}
           icon={Gavel}
           trend={{ value: 5, isPositive: true }}
         />
         <StatCard
           title="Sales This Month"
-          value="6"
+          value={stats.salesThisMonth.toString()}
           icon={TrendingUp}
           trend={{ value: 8, isPositive: false }}
         />
         <StatCard
           title="Revenue (KSh)"
-          value="4.2M"
+          value={stats.revenue}
           icon={DollarSign}
           trend={{ value: 15, isPositive: true }}
         />

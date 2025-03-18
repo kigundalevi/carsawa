@@ -1,57 +1,146 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Calendar, Gauge, MapPin, Shield, PenTool as Tool, Award } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Calendar, Gauge, MapPin, Shield, Award, AlertTriangle } from 'lucide-react';
 import { BidModal } from '../components/bidding/BidModal';
 import { BidHistory } from '../components/bidding/BidHistory';
 
-// Sample data - In a real app, this would come from an API
-const carDetails = {
+// Fallback data in case no car is found
+const fallbackCarDetails = {
   id: '1',
-  title: '2020 Toyota Land Cruiser V8',
-  year: 2020,
-  price: 12500000,
-  location: 'Nairobi, Kenya',
-  mileage: 45000,
-  condition: 'Excellent' as const,
-  description: 'Fully loaded 2020 Toyota Land Cruiser V8 with leather interior, sunroof, and all the premium features. Single owner, full service history available.',
-  features: [
-    'Leather Interior',
-    'Sunroof',
-    'Navigation System',
-    'Bluetooth',
-    'Reverse Camera',
-    '360° Camera System',
-    'Heated Seats',
-    'Cruise Control'
-  ],
-  images: [
-    'https://images.unsplash.com/photo-1594502184342-2e12f877aa73?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1669224088511-b2e78641feb9?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1669224088499-4996ba8fbb5a?auto=format&fit=crop&w=1200&q=80'
-  ],
+  title: 'Car Details Not Found',
+  year: new Date().getFullYear(),
+  price: 0,
+  location: 'Unknown',
+  mileage: 0,
+  condition: 'Good' as const,
+  description: 'Car details could not be loaded. Please go back to listings and try again.',
+  features: ['No features available'],
+  images: ['https://images.unsplash.com/photo-1594502184342-2e12f877aa73?auto=format&fit=crop&w=1200&q=80'],
   inspectionReport: {
-    exterior: 'Excellent',
-    interior: 'Excellent',
-    mechanical: 'Excellent',
-    lastInspection: '2024-02-15'
+    exterior: 'Unknown',
+    interior: 'Unknown',
+    mechanical: 'Unknown',
+    lastInspection: 'Unknown'
   }
 };
 
-const bidHistory = [
-  { id: '1', amount: 12300000, bidder: 'John D.', time: '2 hours ago' },
-  { id: '2', amount: 12200000, bidder: 'Sarah M.', time: '3 hours ago' },
-  { id: '3', amount: 12000000, bidder: 'Mike K.', time: '5 hours ago' }
-];
+interface Bid {
+  id: string;
+  amount: number;
+  bidder: string;
+  time: string;
+}
 
 export function CarDetails() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
+  const [bidHistory, setBidHistory] = useState<Bid[]>([]);
+  const [carDetails, setCarDetails] = useState(fallbackCarDetails);
+  const [bidPlaced, setBidPlaced] = useState(false);
   const { id } = useParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Load car details from localStorage
+    if (id) {
+      const storedCar = localStorage.getItem(`car-${id}`);
+      if (storedCar) {
+        const parsedCar = JSON.parse(storedCar);
+        
+        // Extend the basic car data with additional details
+        setCarDetails({
+          ...parsedCar,
+          description: parsedCar.description || 'No description available for this vehicle.',
+          features: parsedCar.features || [
+            'Leather Interior',
+            'Sunroof',
+            'Navigation System',
+            'Bluetooth',
+            'Reverse Camera',
+            'Cruise Control'
+          ],
+          images: parsedCar.images || [parsedCar.image, parsedCar.image, parsedCar.image],
+          inspectionReport: parsedCar.inspectionReport || {
+            exterior: parsedCar.condition,
+            interior: parsedCar.condition,
+            mechanical: parsedCar.condition,
+            lastInspection: new Date().toISOString().split('T')[0]
+          }
+        });
+      }
+    }
+
+    // Load bid history from localStorage
+    const storedBids = localStorage.getItem(`bids-${id}`);
+    if (storedBids) {
+      setBidHistory(JSON.parse(storedBids));
+    } else {
+      // Set default bid history if none exists
+      const defaultBids = [
+        { id: '1', amount: Math.floor(carDetails.price * 0.98), bidder: 'Sarah M.', time: '3 hours ago' },
+        { id: '2', amount: Math.floor(carDetails.price * 0.95), bidder: 'Mike K.', time: '5 hours ago' }
+      ];
+      setBidHistory(defaultBids);
+      localStorage.setItem(`bids-${id}`, JSON.stringify(defaultBids));
+    }
+  }, [id]);
 
   const handleBidSubmit = (amount: number) => {
-    console.log('Bid submitted:', amount);
-    // In a real app, this would make an API call
+    // Create a new bid
+    const newBid = {
+      id: Date.now().toString(),
+      amount,
+      bidder: 'You',
+      time: 'Just now'
+    };
+
+    // Update bid history
+    const updatedBids = [newBid, ...bidHistory];
+    setBidHistory(updatedBids);
+    localStorage.setItem(`bids-${id}`, JSON.stringify(updatedBids));
+
+    // Add to active bids in localStorage
+    const activeBids = JSON.parse(localStorage.getItem('activeBids') || '[]');
+    const newActiveBid = {
+      id: newBid.id,
+      carId: id,
+      carName: carDetails.title,
+      amount: amount,
+      timeLeft: '23h 45m',
+      image: carDetails.images[0],
+      status: 'pending'
+    };
+    localStorage.setItem('activeBids', JSON.stringify([...activeBids, newActiveBid]));
+
+    // Add to recent activity
+    const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
+    const newActivity = {
+      id: Date.now().toString(),
+      message: `New bid placed on ${carDetails.title}`,
+      time: 'Just now',
+      type: 'bid'
+    };
+    localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
+
+    // Set bid placed flag
+    setBidPlaced(true);
   };
+
+  if (!id) {
+    return (
+      <div className="text-center py-12">
+        <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Car Not Found</h2>
+        <p className="text-gray-600 mb-6">We couldn't find the car you're looking for.</p>
+        <button 
+          onClick={() => navigate('/listings')}
+          className="bg-primary hover:bg-primary-hover text-black px-4 py-2 rounded-lg transition-colors"
+        >
+          Return to Listings
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -109,9 +198,13 @@ export function CarDetails() {
 
             <button
               onClick={() => setIsBidModalOpen(true)}
-              className="w-full bg-primary hover:bg-primary-hover text-black font-medium py-3 rounded-lg transition-colors mb-4"
+              className={`w-full font-medium py-3 rounded-lg transition-colors mb-4 ${
+                bidPlaced 
+                  ? 'bg-green-500 hover:bg-green-600 text-white' 
+                  : 'bg-primary hover:bg-primary-hover text-black'
+              }`}
             >
-              Place Bid
+              {bidPlaced ? 'Bid Placed Successfully' : 'Place Bid'}
             </button>
 
             <p className="text-sm text-gray-500 text-center">
