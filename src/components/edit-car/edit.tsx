@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Camera, Loader, ArrowLeft } from 'lucide-react';
 
@@ -26,7 +26,7 @@ export function EditCarPage() {
     mileage: 0,
     condition: 'Good',
     description: '',
-    images: ['/api/placeholder/400/300'],
+    images: ['https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=800&q=80'],
     status: 'active'
   });
   const [notFound, setNotFound] = useState(false);
@@ -45,7 +45,7 @@ export function EditCarPage() {
         mileage: car.mileage,
         condition: car.condition,
         description: car.description || '',
-        images: [car.image],
+        images: car.images ? car.images : [car.image],
         status: car.status
       });
     } else {
@@ -53,7 +53,7 @@ export function EditCarPage() {
     }
   }, [id]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -66,11 +66,11 @@ export function EditCarPage() {
     // For now, we'll just add a placeholder
     setFormData(prev => ({
       ...prev,
-      images: [...prev.images, '/api/placeholder/400/300']
+      images: [...prev.images, 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=800&q=80']
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
@@ -92,6 +92,7 @@ export function EditCarPage() {
             condition: formData.condition,
             description: formData.description,
             image: formData.images[0],
+            images: formData.images,
             status: formData.status
           };
         }
@@ -99,6 +100,16 @@ export function EditCarPage() {
       });
       
       localStorage.setItem('carInventory', JSON.stringify(updatedInventory));
+      
+      // Add to recent activities
+      const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
+      const newActivity = {
+        id: Date.now().toString(),
+        message: `Updated car listing: ${formData.title}`,
+        time: 'Just now',
+        type: 'listing'
+      };
+      localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
       
       setIsSubmitting(false);
       navigate('/inventory');

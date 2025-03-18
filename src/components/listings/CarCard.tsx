@@ -1,4 +1,3 @@
-import React from 'react';
 import { MapPin, Calendar, Gauge } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -18,6 +17,11 @@ interface CarCardProps {
 }
 
 export function CarCard({ car, className }: CarCardProps) {
+  const handleViewDetails = () => {
+    // Store the car details in localStorage for the CarDetails page
+    localStorage.setItem(`car-${car.id}`, JSON.stringify(car));
+  };
+
   return (
     <div className={cn("bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow", className)}>
       <div className="relative aspect-[16/9]">
@@ -64,6 +68,7 @@ export function CarCard({ car, className }: CarCardProps) {
         <Link
           to={`/car/${car.id}`}
           className="block w-full mt-4 bg-primary hover:bg-primary-hover text-black font-medium py-2 rounded-lg transition-colors text-center"
+          onClick={handleViewDetails}
         >
           View Details
         </Link>

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Search } from 'lucide-react';
 
 export function ListingsFilter() {
@@ -16,16 +15,16 @@ export function ListingsFilter() {
       <div className="space-y-6">
         <div>
           <h3 className="font-medium mb-3">Price Range</h3>
-          <div className="flex gap-4">
+          <div className="flex-col gap-2">
             <input
               type="number"
               placeholder="Min"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
             <input
               type="number"
               placeholder="Max"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 mt-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
         </div>

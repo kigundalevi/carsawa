@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Edit, Trash, Check, X, MoreHorizontal, Car } from 'lucide-react';
+import { Edit, Trash, Check, X, Car } from 'lucide-react';
 
 interface CarListing {
   id: string;
@@ -33,9 +33,9 @@ export function InventoryPage() {
           price: 12500000,
           location: 'Nairobi, Kenya',
           mileage: 45000,
-          image: '/api/placeholder/400/300',
-          condition: 'Excellent',
-          status: 'active',
+          image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=400&q=80',
+          condition: 'Excellent' as const,
+          status: 'active' as const,
           listingDate: '2025-02-15T12:00:00.000Z'
         },
         {
@@ -45,9 +45,9 @@ export function InventoryPage() {
           price: 4800000,
           location: 'Mombasa, Kenya',
           mileage: 62000,
-          image: '/api/placeholder/400/300',
-          condition: 'Good',
-          status: 'active',
+          image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=400&q=80',
+          condition: 'Good' as const,
+          status: 'active' as const,
           listingDate: '2025-02-20T14:30:00.000Z'
         },
         {
@@ -57,9 +57,9 @@ export function InventoryPage() {
           price: 3200000,
           location: 'Nairobi, Kenya',
           mileage: 85000,
-          image: '/api/placeholder/400/300',
-          condition: 'Fair',
-          status: 'sold',
+          image: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=400&q=80',
+          condition: 'Fair' as const,
+          status: 'sold' as const,
           listingDate: '2025-01-10T09:15:00.000Z'
         }
       ];
@@ -78,13 +78,37 @@ export function InventoryPage() {
     
     setInventory(updatedInventory);
     localStorage.setItem('carInventory', JSON.stringify(updatedInventory));
+    
+    // Add to recent activities
+    const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
+    const car = inventory.find(c => c.id === carId);
+    const newActivity = {
+      id: Date.now().toString(),
+      message: `Car ${car?.title} marked as ${status}`,
+      time: 'Just now',
+      type: status === 'sold' ? 'sale' : 'listing'
+    };
+    localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
   };
 
   const deleteCar = (carId: string) => {
     if (window.confirm('Are you sure you want to delete this listing?')) {
+      const carToDelete = inventory.find(car => car.id === carId);
       const updatedInventory = inventory.filter(car => car.id !== carId);
       setInventory(updatedInventory);
       localStorage.setItem('carInventory', JSON.stringify(updatedInventory));
+      
+      // Add to recent activities
+      if (carToDelete) {
+        const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
+        const newActivity = {
+          id: Date.now().toString(),
+          message: `Deleted listing: ${carToDelete.title}`,
+          time: 'Just now',
+          type: 'listing'
+        };
+        localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
+      }
     }
   };
 
@@ -114,7 +138,7 @@ export function InventoryPage() {
       </div>
       
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <div className="flex gap-4 mb-4">
+        <div className="flex gap-4 mb-4 flex-wrap">
           <button
             onClick={() => setFilterStatus('all')}
             className={`px-4 py-2 rounded-lg ${filterStatus === 'all' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
@@ -141,21 +165,25 @@ export function InventoryPage() {
           </button>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left">Image</th>
-                <th className="px-4 py-3 text-left">Car Details</th>
-                <th className="px-4 py-3 text-left">Price</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Listed Date</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredInventory.length > 0 ? (
-                filteredInventory.map(car => (
+        {filteredInventory.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No cars found in this category.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left">Image</th>
+                  <th className="px-4 py-3 text-left">Car Details</th>
+                  <th className="px-4 py-3 text-left">Price</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Listed Date</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredInventory.map(car => (
                   <tr key={car.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="w-16 h-12 overflow-hidden rounded">
@@ -204,7 +232,7 @@ export function InventoryPage() {
                         {car.status === 'archived' && (
                           <button
                             onClick={() => updateCarStatus(car.id, 'active')}
-                            className="p-1 hover:bg-blue-100 hover:text-blue-800 rounded"
+                            className="p-1 hover:bg-green-100 hover:text-green-800 rounded"
                             title="Restore Listing"
                           >
                             <Check className="w-5 h-5" />
@@ -227,20 +255,11 @@ export function InventoryPage() {
                       </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    {filterStatus === 'all' ? 
-                      "You don't have any car listings yet." : 
-                      `No ${filterStatus} car listings found.`
-                    }
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
