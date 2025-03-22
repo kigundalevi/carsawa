@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Car, Bell, Plus, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { NotificationsDropdown } from '../notifications/Notifications';
+import { notificationAPI } from '../../services/api';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -12,25 +13,33 @@ export function Header({ toggleSidebar }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
-    // Load notifications from localStorage
-    const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
-    // Count unread notifications
-    setNotificationCount(recentActivities.length);
-    
-    // Add event listener to update notification count when localStorage changes
-    const handleStorageChange = () => {
-      const activities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
-      setNotificationCount(activities.length);
+    // Fetch unread notification count from API
+    const fetchNotificationCount = async () => {
+      try {
+        const count = await notificationAPI.getUnreadCount();
+        setNotificationCount(count);
+      } catch (err) {
+        console.error('Error fetching notification count:', err);
+      }
     };
     
-    window.addEventListener('storage', handleStorageChange);
+    fetchNotificationCount();
+    
+    // Set up polling to check for new notifications every minute
+    const intervalId = setInterval(fetchNotificationCount, 60000);
+    
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(intervalId);
     };
   }, []);
 
   const toggleNotifications = () => {
     setShowNotifications(!showNotifications);
+    
+    // If opening notifications, reset the count
+    if (!showNotifications) {
+      setNotificationCount(0);
+    }
   };
 
   const closeNotifications = () => {

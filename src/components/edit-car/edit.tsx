@@ -1,6 +1,7 @@
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, Loader, ArrowLeft } from 'lucide-react';
+import { Camera, Loader, ArrowLeft, X } from 'lucide-react';
+import { carAPI } from '../../services/api';
 
 interface CarFormData {
   title: string;
@@ -10,8 +11,14 @@ interface CarFormData {
   mileage: number;
   condition: 'Excellent' | 'Good' | 'Fair';
   description: string;
-  images: string[];
   status: 'active' | 'sold' | 'archived';
+}
+
+interface ImageData {
+  id?: string;
+  url: string;
+  file?: File;
+  isNew?: boolean;
 }
 
 export function EditCarPage() {
@@ -26,31 +33,47 @@ export function EditCarPage() {
     mileage: 0,
     condition: 'Good',
     description: '',
-    images: ['https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=800&q=80'],
     status: 'active'
   });
   const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for image handling
+  const [images, setImages] = useState<ImageData[]>([]);
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
 
   useEffect(() => {
-    // Load car data from localStorage
-    const inventory = JSON.parse(localStorage.getItem('carInventory') || '[]');
-    const car = inventory.find((car: any) => car.id === id);
+    // Load car data from API
+    const fetchCarData = async () => {
+      if (!id) return;
+      
+      try {
+        const car = await carAPI.getCarById(id);
+        
+        setFormData({
+          title: car.title,
+          year: car.year,
+          price: car.price,
+          location: car.location,
+          mileage: car.mileage,
+          condition: car.condition,
+          description: car.description || '',
+          status: car.status
+        });
+        
+        // Set images from API response
+        if (car.images && car.images.length > 0) {
+          setImages(car.images.map((img: any) => ({
+            id: img.id,
+            url: img.url
+          })));
+        }
+      } catch (err) {
+        setNotFound(true);
+      }
+    };
     
-    if (car) {
-      setFormData({
-        title: car.title,
-        year: car.year,
-        price: car.price,
-        location: car.location,
-        mileage: car.mileage,
-        condition: car.condition,
-        description: car.description || '',
-        images: car.images ? car.images : [car.image],
-        status: car.status
-      });
-    } else {
-      setNotFound(true);
-    }
+    fetchCarData();
   }, [id]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -61,59 +84,104 @@ export function EditCarPage() {
     }));
   };
 
-  const handleAddImage = () => {
-    // In a real implementation, this would handle image upload
-    // For now, we'll just add a placeholder
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=800&q=80']
-    }));
+  // Handle image selection
+  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      
+      // Validate file types
+      const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+      if (invalidFiles.length > 0) {
+        setError('Please select only image files (JPEG, PNG, etc.)');
+        return;
+      }
+      
+      // Validate file size (max 5MB per file)
+      const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+      if (oversizedFiles.length > 0) {
+        setError('Some images exceed the maximum file size of 5MB');
+        return;
+      }
+      
+      setError(null);
+      
+      // Create new image objects with preview URLs
+      const newImages = files.map(file => ({
+        url: URL.createObjectURL(file),
+        file,
+        isNew: true
+      }));
+      
+      setImages(prev => [...prev, ...newImages]);
+    }
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  // Remove an image
+  const removeImage = (index: number) => {
+    const imageToRemove = images[index];
     
-    // Simulate API call
-    setTimeout(() => {
-      // Get current inventory
-      const inventory = JSON.parse(localStorage.getItem('carInventory') || '[]');
+    // If it's a new image with a created object URL, revoke it to prevent memory leaks
+    if (imageToRemove.isNew && imageToRemove.file) {
+      URL.revokeObjectURL(imageToRemove.url);
+    }
+    
+    // If it's an existing image with an ID, add it to the list of images to delete
+    if (imageToRemove.id) {
+      setImagesToDelete(prev => [...prev, imageToRemove.id!]);
+    }
+    
+    // Remove the image from the list
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    // Validate that at least one image is present
+    if (images.length === 0) {
+      setError('Please add at least one image of the car');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      // Create FormData object to send files and form data
+      const formDataToSend = new FormData();
       
-      // Update the car listing
-      const updatedInventory = inventory.map((car: any) => {
-        if (car.id === id) {
-          return {
-            ...car,
-            title: formData.title,
-            year: formData.year,
-            price: formData.price,
-            location: formData.location,
-            mileage: formData.mileage,
-            condition: formData.condition,
-            description: formData.description,
-            image: formData.images[0],
-            images: formData.images,
-            status: formData.status
-          };
-        }
-        return car;
+      // Append car details
+      Object.entries(formData).forEach(([key, value]) => {
+        formDataToSend.append(key, value.toString());
       });
       
-      localStorage.setItem('carInventory', JSON.stringify(updatedInventory));
+      // Append new images
+      const newImages = images.filter(img => img.isNew && img.file);
+      newImages.forEach(img => {
+        if (img.file) {
+          formDataToSend.append('newImages', img.file);
+        }
+      });
       
-      // Add to recent activities
-      const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
-      const newActivity = {
-        id: Date.now().toString(),
-        message: `Updated car listing: ${formData.title}`,
-        time: 'Just now',
-        type: 'listing'
-      };
-      localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
+      // Append existing image IDs to keep
+      const existingImageIds = images
+        .filter(img => img.id && !img.isNew)
+        .map(img => img.id);
+      formDataToSend.append('existingImages', JSON.stringify(existingImageIds));
       
-      setIsSubmitting(false);
+      // Append image IDs to delete
+      formDataToSend.append('imagesToDelete', JSON.stringify(imagesToDelete));
+      
+      // Send data to API
+      await carAPI.updateCar(id!, formDataToSend);
+      
+      // Navigate to inventory page on success
       navigate('/inventory');
-    }, 1000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update car listing. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (notFound) {
@@ -142,6 +210,12 @@ export function EditCarPage() {
         </button>
         <h1 className="text-2xl font-bold">Edit Car Listing</h1>
       </div>
+      
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -259,20 +333,32 @@ export function EditCarPage() {
         <div>
           <label className="block text-sm font-medium mb-2">Images</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {formData.images.map((img, index) => (
+            {images.map((img, index) => (
               <div key={index} className="relative aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
-                <img src={img} alt={`Car preview ${index + 1}`} className="w-full h-full object-cover" />
+                <img src={img.url} alt={`Car preview ${index + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(index)}
+                  className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={handleAddImage}
-              className="aspect-[4/3] flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-primary transition-colors"
-            >
+            <label className="aspect-[4/3] flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-primary transition-colors cursor-pointer">
               <Camera className="w-8 h-8 text-gray-500" />
               <span className="mt-2 text-sm text-gray-500">Add Image</span>
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+            </label>
           </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Upload up to 10 images. Max 5MB per image. Supported formats: JPEG, PNG, GIF.
+          </p>
         </div>
         
         <div className="pt-4 flex gap-4">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Edit, Trash, Check, X, Car } from 'lucide-react';
+import { Edit, Trash, Check, X, Car, Loader } from 'lucide-react';
+import { carAPI } from '../../services/api';
 
 interface CarListing {
   id: string;
@@ -10,6 +11,7 @@ interface CarListing {
   location: string;
   mileage: number;
   image: string;
+  images: { id: string; url: string }[];
   condition: 'Excellent' | 'Good' | 'Fair';
   status: 'active' | 'sold' | 'archived';
   listingDate: string;
@@ -18,96 +20,52 @@ interface CarListing {
 export function InventoryPage() {
   const [inventory, setInventory] = useState<CarListing[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Load inventory from localStorage
-    const savedInventory = JSON.parse(localStorage.getItem('carInventory') || '[]');
-    
-    // If no inventory exists in localStorage, initialize with demo data
-    if (savedInventory.length === 0) {
-      const demoInventory = [
-        {
-          id: 'car-1',
-          title: '2020 Toyota Land Cruiser V8',
-          year: 2020,
-          price: 12500000,
-          location: 'Nairobi, Kenya',
-          mileage: 45000,
-          image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=400&q=80',
-          condition: 'Excellent' as const,
-          status: 'active' as const,
-          listingDate: '2025-02-15T12:00:00.000Z'
-        },
-        {
-          id: 'car-2',
-          title: '2019 Mercedes-Benz C200',
-          year: 2019,
-          price: 4800000,
-          location: 'Mombasa, Kenya',
-          mileage: 62000,
-          image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=400&q=80',
-          condition: 'Good' as const,
-          status: 'active' as const,
-          listingDate: '2025-02-20T14:30:00.000Z'
-        },
-        {
-          id: 'car-3',
-          title: '2018 Mazda CX-5',
-          year: 2018,
-          price: 3200000,
-          location: 'Nairobi, Kenya',
-          mileage: 85000,
-          image: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=400&q=80',
-          condition: 'Fair' as const,
-          status: 'sold' as const,
-          listingDate: '2025-01-10T09:15:00.000Z'
-        }
-      ];
-      
-      localStorage.setItem('carInventory', JSON.stringify(demoInventory));
-      setInventory(demoInventory);
-    } else {
-      setInventory(savedInventory);
+  // Fetch inventory data from API
+  const fetchInventory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await carAPI.getAllCars();
+      setInventory(data);
+    } catch (err) {
+      setError('Failed to load inventory. Please try again.');
+      console.error('Error fetching inventory:', err);
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  const updateCarStatus = (carId: string, status: 'active' | 'sold' | 'archived') => {
-    const updatedInventory = inventory.map(car => 
-      car.id === carId ? { ...car, status } : car
-    );
-    
-    setInventory(updatedInventory);
-    localStorage.setItem('carInventory', JSON.stringify(updatedInventory));
-    
-    // Add to recent activities
-    const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
-    const car = inventory.find(c => c.id === carId);
-    const newActivity = {
-      id: Date.now().toString(),
-      message: `Car ${car?.title} marked as ${status}`,
-      time: 'Just now',
-      type: status === 'sold' ? 'sale' : 'listing'
-    };
-    localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
   };
 
-  const deleteCar = (carId: string) => {
-    if (window.confirm('Are you sure you want to delete this listing?')) {
-      const carToDelete = inventory.find(car => car.id === carId);
-      const updatedInventory = inventory.filter(car => car.id !== carId);
-      setInventory(updatedInventory);
-      localStorage.setItem('carInventory', JSON.stringify(updatedInventory));
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  const updateCarStatus = async (carId: string, status: 'active' | 'sold' | 'archived') => {
+    try {
+      // Update status via API
+      await carAPI.updateCarStatus(carId, status);
       
-      // Add to recent activities
-      if (carToDelete) {
-        const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
-        const newActivity = {
-          id: Date.now().toString(),
-          message: `Deleted listing: ${carToDelete.title}`,
-          time: 'Just now',
-          type: 'listing'
-        };
-        localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
+      // Update local state after successful API call
+      setInventory(prev => 
+        prev.map(car => car.id === carId ? { ...car, status } : car)
+      );
+    } catch (err) {
+      setError(`Failed to update car status: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const deleteCar = async (carId: string) => {
+    if (window.confirm('Are you sure you want to delete this listing?')) {
+      try {
+        // Delete car via API
+        await carAPI.deleteCar(carId);
+        
+        // Update local state after successful API call
+        setInventory(prev => prev.filter(car => car.id !== carId));
+      } catch (err) {
+        setError(`Failed to delete car: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
   };
@@ -124,6 +82,15 @@ export function InventoryPage() {
     });
   };
 
+  if (loading) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center h-64">
+        <Loader className="w-8 h-8 animate-spin text-primary mb-4" />
+        <p className="text-gray-600">Loading inventory...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -136,6 +103,18 @@ export function InventoryPage() {
           List New Car
         </Link>
       </div>
+      
+      {error && (
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
+          {error}
+          <button 
+            onClick={fetchInventory} 
+            className="ml-4 underline hover:text-red-800"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
       
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <div className="flex gap-4 mb-4 flex-wrap">
@@ -187,7 +166,7 @@ export function InventoryPage() {
                   <tr key={car.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="w-16 h-12 overflow-hidden rounded">
-                        <img src={car.image} alt={car.title} className="w-full h-full object-cover" />
+                        <img src={car.image || (car.images && car.images.length > 0 ? car.images[0].url : '')} alt={car.title} className="w-full h-full object-cover" />
                       </div>
                     </td>
                     <td className="px-4 py-3">
