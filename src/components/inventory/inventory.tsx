@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Edit, Trash, Check, X, Car, Loader } from 'lucide-react';
+import { Edit, Trash, Check, X, Car, Loader, AlertCircle } from 'lucide-react';
 import { carAPI } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CarListing {
   id: string;
@@ -15,9 +16,11 @@ interface CarListing {
   condition: 'Excellent' | 'Good' | 'Fair';
   status: 'active' | 'sold' | 'archived';
   listingDate: string;
+  dealerId: string;
 }
 
 export function InventoryPage() {
+  const { user } = useAuth();
   const [inventory, setInventory] = useState<CarListing[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -28,7 +31,9 @@ export function InventoryPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await carAPI.getAllCars();
+      
+      // Use getMyListings to only fetch the current dealer's listings
+      const data = await carAPI.getMyListings();
       setInventory(data);
     } catch (err) {
       setError('Failed to load inventory. Please try again.');
@@ -87,6 +92,20 @@ export function InventoryPage() {
       <div className="p-6 flex flex-col items-center justify-center h-64">
         <Loader className="w-8 h-8 animate-spin text-primary mb-4" />
         <p className="text-gray-600">Loading inventory...</p>
+      </div>
+    );
+  }
+
+  // Check if the user is a dealer
+  if (!user || user.role !== 'dealer') {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center h-64">
+        <AlertCircle className="w-8 h-8 text-red-500 mb-4" />
+        <h2 className="text-xl font-bold text-gray-800 mb-2">Access Denied</h2>
+        <p className="text-gray-600 mb-4">You must be a registered dealer to view and manage inventory.</p>
+        <Link to="/login" className="bg-primary hover:bg-primary-hover text-black px-4 py-2 rounded-lg transition-colors">
+          Login as Dealer
+        </Link>
       </div>
     );
   }
@@ -202,7 +221,7 @@ export function InventoryPage() {
                         {car.status === 'active' && (
                           <button
                             onClick={() => updateCarStatus(car.id, 'archived')}
-                            className="p-1 hover:bg-gray-100 rounded"
+                            className="p-1 hover:bg-gray-100 hover:text-gray-800 rounded"
                             title="Archive Listing"
                           >
                             <X className="w-5 h-5" />

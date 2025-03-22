@@ -5,7 +5,7 @@
  * It provides methods for authentication, car management, and other operations.
  */
 
-// Base URL for API calls - replace with your actual backend URL in production
+// Base URL for API calls -
 const API_BASE_URL = 'http://localhost:5000/api';
 
 // Helper function to handle API responses
@@ -80,9 +80,27 @@ export const authAPI = {
 export const carAPI = {
   /**
    * Get all cars in inventory
+   * @param filters Optional filters for the query
    */
-  getAllCars: async () => {
-    const response = await fetch(`${API_BASE_URL}/cars`, {
+  getAllCars: async (filters = {}) => {
+    // Convert filters to query string
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) queryParams.append(key, value.toString());
+    });
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    const response = await fetch(`${API_BASE_URL}/cars${queryString}`, {
+      credentials: 'include',
+    });
+    return handleResponse(response);
+  },
+
+  /**
+   * Get cars owned by the current dealer
+   */
+  getMyListings: async () => {
+    const response = await fetch(`${API_BASE_URL}/cars/my-listings`, {
       credentials: 'include',
     });
     return handleResponse(response);
