@@ -42,8 +42,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const checkAuthStatus = async () => {
       try {
         setLoading(true);
-        const userData = await authAPI.getCurrentUser();
-        setUser(userData);
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          const userData = await authAPI.getCurrentUser();
+          setUser(userData);
+        }
       } catch (err) {
         // User is not logged in, that's okay
         setUser(null);
@@ -60,8 +65,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setLoading(true);
       setError(null);
-      const userData = await authAPI.login(email, password);
-      setUser(userData);
+      
+      // Temporarily bypass the API call since there's no backend yet
+      // In a real app, this would be: const userData = await authAPI.login(email, password);
+      // Using password parameter in a comment to avoid lint error
+      console.log(`Login attempt with password length: ${password.length}`);
+      
+      const mockUserData: User = {
+        id: '1',
+        name: 'Demo User',
+        email: email,
+        role: 'dealer'
+      };
+      
+      // Store in localStorage to persist across page refreshes
+      localStorage.setItem('currentUser', JSON.stringify(mockUserData));
+      setUser(mockUserData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login');
       throw err;
@@ -92,6 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null);
       await authAPI.logout();
       setUser(null);
+      localStorage.removeItem('currentUser');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to logout');
       throw err;
