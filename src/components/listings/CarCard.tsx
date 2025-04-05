@@ -12,14 +12,36 @@ interface CarCardProps {
     mileage: number;
     image: string;
     condition: 'Excellent' | 'Good' | 'Fair';
+    status?: 'active' | 'sold' | 'archived';
+    dealerId?: string;
+    userId?: string;
   };
   className?: string;
+  showBidButton?: boolean;
 }
 
-export function CarCard({ car, className }: CarCardProps) {
+export function CarCard({ car, className, showBidButton = false }: CarCardProps) {
   const handleViewDetails = () => {
     // Store the car details in localStorage for the CarDetails page
     localStorage.setItem(`car-${car.id}`, JSON.stringify(car));
+  };
+
+  const handlePlaceBid = () => {
+    // In a real app, this would open a modal or navigate to a bid form
+    alert(`Placing bid on ${car.title}`);
+    
+    // Track this activity in localStorage for notifications
+    const recentActivities = JSON.parse(localStorage.getItem('recentActivities') || '[]');
+    const newActivity = {
+      id: Date.now().toString(),
+      type: 'bid_placed',
+      carId: car.id,
+      carTitle: car.title,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    
+    localStorage.setItem('recentActivities', JSON.stringify([newActivity, ...recentActivities]));
   };
 
   return (
@@ -65,13 +87,24 @@ export function CarCard({ car, className }: CarCardProps) {
           </div>
         </div>
         
-        <Link
-          to={`/car/${car.id}`}
-          className="block w-full mt-4 bg-primary hover:bg-primary-hover text-black font-medium py-2 rounded-lg transition-colors text-center"
-          onClick={handleViewDetails}
-        >
-          View Details
-        </Link>
+        <div className="mt-4 flex flex-col gap-2">
+          <Link
+            to={`/car/${car.id}`}
+            className="block w-full bg-primary hover:bg-primary-hover text-black font-medium py-2 rounded-lg transition-colors text-center"
+            onClick={handleViewDetails}
+          >
+            View Details
+          </Link>
+          
+          {showBidButton && (
+            <button
+              onClick={handlePlaceBid}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors"
+            >
+              Place Bid
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
