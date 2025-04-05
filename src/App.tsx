@@ -12,6 +12,7 @@ import { Bids } from './pages/Bids';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Analytics } from '@vercel/analytics/react';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -36,6 +37,7 @@ function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Analytics />
           <Route element={
             <ProtectedRoute>
               <Layout />

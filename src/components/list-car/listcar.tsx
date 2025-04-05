@@ -1,4 +1,4 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState, FormEvent, ChangeEvent, KeyboardEvent } from 'react';
 import { Camera, Loader, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { carAPI } from '../../services/api';
@@ -11,6 +11,7 @@ interface CarFormData {
   mileage: number;
   condition: 'Excellent' | 'Good' | 'Fair';
   description: string;
+  features?: string[];
 }
 
 export function ListCarForm() {
@@ -26,6 +27,10 @@ export function ListCarForm() {
     description: '',
   });
   
+  // Features state
+  const [features, setFeatures] = useState<string[]>([]);
+  const [featureInput, setFeatureInput] = useState('');
+  
   // State for image uploads
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -37,6 +42,33 @@ export function ListCarForm() {
       ...prev,
       [name]: name === 'price' || name === 'mileage' || name === 'year' ? Number(value) : value
     }));
+  };
+
+  // Feature handling methods
+  const handleFeatureKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    const inputValue = featureInput.trim();
+    
+    // Add feature on Enter or comma
+    if ((e.key === 'Enter' || e.key === ',') && inputValue) {
+      e.preventDefault();
+      
+      // Prevent duplicate features
+      if (!features.includes(inputValue)) {
+        setFeatures(prev => [...prev, inputValue]);
+      }
+      
+      // Clear input
+      setFeatureInput('');
+    }
+    
+    // Remove last feature on Backspace if input is empty
+    if (e.key === 'Backspace' && inputValue === '' && features.length > 0) {
+      setFeatures(prev => prev.slice(0, -1));
+    }
+  };
+
+  const removeFeature = (featureToRemove: string) => {
+    setFeatures(prev => prev.filter(feature => feature !== featureToRemove));
   };
 
   // Handle image selection
@@ -55,6 +87,12 @@ export function ListCarForm() {
       const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
       if (oversizedFiles.length > 0) {
         setError('Some images exceed the maximum file size of 5MB');
+        return;
+      }
+      
+      // Validate maximum number of images (10)
+      if (selectedImages.length + files.length > 10) {
+        setError('You can upload a maximum of 10 images');
         return;
       }
       
@@ -99,6 +137,11 @@ export function ListCarForm() {
       Object.entries(formData).forEach(([key, value]) => {
         formDataToSend.append(key, value.toString());
       });
+      
+      // Append features if any
+      if (features.length > 0) {
+        formDataToSend.append('features', JSON.stringify(features));
+      }
       
       // Append images
       selectedImages.forEach(image => {
@@ -214,6 +257,41 @@ export function ListCarForm() {
           </div>
         </div>
         
+        {/* Features Input Section */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Car Features</label>
+          <div className="relative">
+            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg flex flex-wrap items-center gap-2 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+              {features.map((feature) => (
+                <span 
+                  key={feature} 
+                  className="flex items-center bg-primary text-sm px-2 py-1 rounded-full"
+                >
+                  {feature}
+                  <button
+                    type="button"
+                    onClick={() => removeFeature(feature)}
+                    className="ml-1 text-gray-500 hover:text-red-500"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={featureInput}
+                onChange={(e) => setFeatureInput(e.target.value)}
+                onKeyDown={handleFeatureKeyDown}
+                placeholder={features.length === 0 ? "Add features (Press Enter to add)" : ""}
+                className="flex-grow outline-none bg-transparent ml-1"
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Add features by typing and pressing Enter. Separate multiple features.
+          </p>
+        </div>
+        
         <div>
           <label className="block text-sm font-medium mb-2">Description</label>
           <textarea
@@ -226,6 +304,7 @@ export function ListCarForm() {
           ></textarea>
         </div>
         
+        {/* Rest of the form remains the same */}
         <div>
           <label className="block text-sm font-medium mb-2">Images</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -249,6 +328,7 @@ export function ListCarForm() {
                 accept="image/*"
                 onChange={handleImageSelect}
                 className="hidden"
+                multiple
               />
             </label>
           </div>
