@@ -22,13 +22,11 @@ export function Login() {
     setIsSubmitting(true);
 
     try {
-      // Call the modified login function from AuthContext
-      // This now handles the mock user creation internally
       await login(email, password);
       navigate('/dashboard');
-      setIsSubmitting(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login. Please check your credentials.');
+    } finally {
       setIsSubmitting(false);
     }
   };

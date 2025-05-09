@@ -10,9 +10,10 @@ import {
   Settings,
   ChevronRight,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useState, useEffect } from 'react';
+import { authAPI } from '../../services/api';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -21,8 +22,7 @@ interface SidebarProps {
 
 interface DealerProfile {
   name: string;
-  email: string;
-  avatar: string;
+  profileImage: string;
 }
 
 const navigation = [
@@ -34,18 +34,38 @@ const navigation = [
 ];
 
 export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
+  const navigate = useNavigate();
   const [dealer, setDealer] = useState<DealerProfile>({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80'
+    name: 'Loading...',
+    profileImage: '/default-avatar.png'
   });
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem('dealerProfile');
-    if (savedProfile) {
-      setDealer(JSON.parse(savedProfile));
-    }
+    const fetchProfile = async () => {
+      try {
+        const userData = await authAPI.getCurrentUser();
+        setDealer({
+          name: userData.name,
+          profileImage: userData.profileImage
+        });
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+        // Optionally handle error, e.g., redirect to login
+      }
+    };
+    fetchProfile();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout();
+      localStorage.removeItem('token');
+      localStorage.removeItem('currentUser');
+      navigate('/login');
+    } catch (err) {
+      console.error('Failed to logout:', err);
+    }
+  };
 
   return (
     <div className={cn(
@@ -70,7 +90,7 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
       )}>
         <div className="relative">
           <img 
-            src={dealer.avatar} 
+            src={dealer.profileImage || '/default-avatar.png'} 
             alt="Dealer avatar" 
             className="w-12 h-12 rounded-full object-cover border-2 border-primary"
           />
@@ -80,7 +100,6 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
         {!isCollapsed && (
           <div className="mt-3 text-center">
             <h3 className="text-primary font-medium">{dealer.name}</h3>
-            <p className="text-gray-400 text-xs mt-1">{dealer.email}</p>
             <NavLink
               to="/profile"
               className="mt-3 text-xs text-gray-300 hover:text-primary flex items-center justify-center gap-1"
@@ -130,6 +149,7 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
         </NavLink>
         
         <button
+          onClick={handleLogout}
           className={cn(
             "flex items-center gap-3 px-4 py-3 text-sm rounded-lg transition-colors w-full",
             "hover:bg-secondary-light text-gray-300",

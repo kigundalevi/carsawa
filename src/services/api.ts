@@ -5,14 +5,39 @@
  * It provides methods for authentication, car management, and other operations.
  */
 
-// Base URL for API calls -
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://carsawa-backend-6zf3.onrender.com';
+
+// Helper function to get auth headers
+const getHeaders = (contentType?: string) => {
+  const headers = new Headers();
+  const token = localStorage.getItem('token');
+  if (token) {
+    headers.append('Authorization', `Bearer ${token}`);
+  }
+  if (contentType) {
+    headers.append('Content-Type', contentType);
+  }
+  return headers;
+};
 
 // Helper function to handle API responses
+// api.ts
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'An error occurred');
+    console.error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}`);
+    let errorMessage = 'An error occurred';
+    try {
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } else {
+        errorMessage = await response.text() || errorMessage;
+      }
+    } catch (e) {
+      console.error('Failed to parse error response:', e);
+    }
+    throw new Error(errorMessage);
   }
   return response.json();
 };
@@ -21,35 +46,34 @@ const handleResponse = async (response: Response) => {
 export const authAPI = {
   /**
    * Register a new user
-   * @param email User's email
-   * @param password User's password
-   * @param name User's full name
+   * @param dealerData Object containing dealer registration details
    */
-  register: async (email: string, password: string, name: string) => {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password, name }),
-      credentials: 'include', // Include cookies for session management
-    });
-    return handleResponse(response);
+  register: async (formData: FormData) => {
+    const url = `${API_BASE_URL}/api/auth/register`;
+  
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+      return await handleResponse(response);
+    } catch (error) {
+      console.error('Fetch error details:', error); // Log the exact error
+      throw error; // Re-throw to handle it in the calling code
+    }
   },
-
   /**
    * Login user
    * @param email User's email
    * @param password User's password
    */
   login: async (email: string, password: string) => {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ email, password }),
-      credentials: 'include', // Include cookies for session management
     });
     return handleResponse(response);
   },
@@ -58,9 +82,9 @@ export const authAPI = {
    * Logout user
    */
   logout: async () => {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
       method: 'POST',
-      credentials: 'include', // Include cookies for session management
+      headers: getHeaders(),
     });
     return handleResponse(response);
   },
@@ -69,8 +93,48 @@ export const authAPI = {
    * Get current user profile
    */
   getCurrentUser: async () => {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      credentials: 'include', // Include cookies for session management
+    const headers = getHeaders()
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: headers,
+    });
+    return handleResponse(response);
+  },
+
+  /**
+   * Update user profile
+   * @param profileData Object containing profile information to update
+   */
+  updateProfile: async (profileData: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+    location?: string;
+    profileImage?: string;
+    password?: string;
+  }) => {
+    const headers = getHeaders('application/json')
+    const response = await fetch(`${API_BASE_URL}/api/auth/update-profile`, {
+      method: 'PUT',
+      headers: headers,
+      body: JSON.stringify(profileData),
+    });
+    return handleResponse(response);
+  },
+
+  /**
+   * Change user password
+   * @param passwordData Object containing current and new passwords
+   */
+  changePassword: async (passwordData: {
+    currentPassword: string;
+    newPassword: string;
+  }) => {
+    const headers = getHeaders('application/json')
+    const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+      method: 'PUT',
+      headers: headers,
+      body: JSON.stringify(passwordData),
     });
     return handleResponse(response);
   },
@@ -79,53 +143,54 @@ export const authAPI = {
 // Car inventory API calls
 export const carAPI = {
   /**
-   * Get all cars in inventory
-   * @param filters Optional filters for the query
+   * Get all cars with optional filters
+   * @param filters Object containing filter parameters
    */
-  getAllCars: async (filters = {}) => {
-    // Convert filters to query string
+  getAllCars: async (filters: Record<string, any> = {}) => {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value) queryParams.append(key, value.toString());
     });
-    
     const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
-    const response = await fetch(`${API_BASE_URL}/cars${queryString}`, {
-      credentials: 'include',
+    const response = await fetch(`${API_BASE_URL}/api/cars${queryString}`, {
+      headers: getHeaders(),
     });
     return handleResponse(response);
   },
 
   /**
-   * Get cars owned by the current dealer
+   * Get current dealer's listings
+   * @param dealerId The ID of the dealer whose listings are to be fetched
    */
-  getMyListings: async () => {
-    const response = await fetch(`${API_BASE_URL}/cars/my-listings`, {
-      credentials: 'include',
+  getMyListings: async (dealerId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/cars/dealer/${dealerId}`, {
+      headers: getHeaders(),
     });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    return data.cars; // Assuming backend returns { cars, page, pages, total }
   },
 
-  /**
+ /**
    * Get a specific car by ID
    * @param id Car ID
    */
-  getCarById: async (id: string) => {
-    const response = await fetch(`${API_BASE_URL}/cars/${id}`, {
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
+ getCarById: async (id: string) => {
+  const response = await fetch(`${API_BASE_URL}/api/cars/${id}`, {
+    headers: getHeaders(),
+  });
+  return handleResponse(response);
+},
 
   /**
    * Create a new car listing
-   * @param carData Car data object
+   * @param carData FormData containing car details and images
    */
   createCar: async (carData: FormData) => {
-    const response = await fetch(`${API_BASE_URL}/cars`, {
+    const headers = getHeaders()
+    const response = await fetch(`${API_BASE_URL}/api/cars/create`, {
       method: 'POST',
-      body: carData, // FormData for file uploads
-      credentials: 'include',
+      headers: headers,
+      body: carData,
     });
     return handleResponse(response);
   },
@@ -133,13 +198,14 @@ export const carAPI = {
   /**
    * Update an existing car listing
    * @param id Car ID
-   * @param carData Car data object
+   * @param carData Object containing updated car details
    */
-  updateCar: async (id: string, carData: FormData) => {
-    const response = await fetch(`${API_BASE_URL}/cars/${id}`, {
+  updateCar: async (id: string, carData: Record<string, any>) => {
+    const headers = getHeaders('application/json')
+    const response = await fetch(`${API_BASE_URL}/api/cars/${id}`, {
       method: 'PUT',
-      body: carData, // FormData for file uploads
-      credentials: 'include',
+      headers: headers,
+      body: JSON.stringify(carData),
     });
     return handleResponse(response);
   },
@@ -149,9 +215,10 @@ export const carAPI = {
    * @param id Car ID
    */
   deleteCar: async (id: string) => {
-    const response = await fetch(`${API_BASE_URL}/cars/${id}`, {
+    const headers = getHeaders()
+    const response = await fetch(`${API_BASE_URL}/api/cars/${id}`, {
       method: 'DELETE',
-      credentials: 'include',
+      headers: headers,
     });
     return handleResponse(response);
   },
@@ -159,110 +226,69 @@ export const carAPI = {
   /**
    * Update car status
    * @param id Car ID
-   * @param status New status ('active', 'sold', 'archived')
+   * @param status New status ('Available', 'Sold', 'Reserved')
    */
-  updateCarStatus: async (id: string, status: 'active' | 'sold' | 'archived') => {
-    const response = await fetch(`${API_BASE_URL}/cars/${id}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+  updateCarStatus: async (id: string, status: 'Available' | 'Sold' | 'Reserved') => {
+    const headers = getHeaders('application/json')
+    const response = await fetch(`${API_BASE_URL}/api/cars/${id}/status`, {
+      method: 'PUT',
+      headers: headers,
       body: JSON.stringify({ status }),
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
-
-  /**
-   * Get user's purchases
-   */
-  getPurchases: async () => {
-    const response = await fetch(`${API_BASE_URL}/transactions/purchases`, {
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
-
-  /**
-   * Get user's sales
-   */
-  getSales: async () => {
-    const response = await fetch(`${API_BASE_URL}/transactions/sales`, {
-      credentials: 'include',
     });
     return handleResponse(response);
   },
 };
 
 // Transactions API calls
-export const transactionAPI = {
-  /**
-   * Get all purchases by the current user
-   */
-  getPurchases: async () => {
-    const response = await fetch(`${API_BASE_URL}/transactions/purchases`, {
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
+// export const transactionAPI = {
+//   getPurchases: async () => {
+//     const response = await fetch(`${API_BASE_URL}/api/transactions/purchases`, {
+//       headers: getHeaders(),
+//     });
+//     return handleResponse(response);
+//   },
 
-  /**
-   * Get all sales by the current user
-   */
-  getSales: async () => {
-    const response = await fetch(`${API_BASE_URL}/transactions/sales`, {
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
-};
+//   getSales: async () => {
+//     const response = await fetch(`${API_BASE_URL}/api/transactions/sales`, {
+//       headers: getHeaders(),
+//     });
+//     return handleResponse(response);
+//   },
+// };
 
 // Notifications API calls
-export const notificationAPI = {
-  /**
-   * Get all notifications for the current user
-   */
-  getNotifications: async () => {
-    const response = await fetch(`${API_BASE_URL}/notifications`, {
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
+// export const notificationAPI = {
+//   getNotifications: async () => {
+//     const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+//       headers: getHeaders(),
+//     });
+//     return handleResponse(response);
+//   },
 
-  /**
-   * Mark notifications as read
-   * @param ids Array of notification IDs to mark as read
-   */
-  markAsRead: async (ids: string[]) => {
-    const response = await fetch(`${API_BASE_URL}/notifications/read`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ ids }),
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
+//   markAsRead: async (ids: string[]) => {
+//     const headers = getHeaders('application/json')
+//     const response = await fetch(`${API_BASE_URL}/api/notifications/read`, {
+//       method: 'POST',
+//       headers: headers,
+//       body: JSON.stringify({ ids }),
+//     });
+//     return handleResponse(response);
+//   },
 
-  /**
-   * Mark all notifications as read
-   */
-  markAllAsRead: async () => {
-    const response = await fetch(`${API_BASE_URL}/notifications/mark-all-read`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
+//   markAllAsRead: async () => {
+//     const headers = getHeaders('application/json')
+//     const response = await fetch(`${API_BASE_URL}/api/notifications/mark-all-read`, {
+//       method: 'POST',
+//       headers: headers,
+//     });
+//     return handleResponse(response);
+//   },
 
-  /**
-   * Get unread notification count
-   */
-  getUnreadCount: async () => {
-    const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
-      credentials: 'include',
-    });
-    return handleResponse(response);
-  },
-};
+//   getUnreadCount: async () => {
+//       const headers = getHeaders('application/json')
+//     const response = await fetch(`${API_BASE_URL}/api/notifications/unread-count`, {
+//       headers: headers,
+//     });
+//     return handleResponse(response);
+//   },
+// };

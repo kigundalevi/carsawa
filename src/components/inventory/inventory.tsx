@@ -5,18 +5,20 @@ import { carAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface CarListing {
-  id: string;
-  title: string;
+  _id: string;
+  make: string;
+  model: string;
   year: number;
   price: number;
-  location: string;
   mileage: number;
-  image: string;
-  images: { id: string; url: string }[];
   condition: 'Excellent' | 'Good' | 'Fair';
-  status: 'active' | 'sold' | 'archived';
-  listingDate: string;
-  dealerId: string;
+  transmission: string;
+  bodyType: string;
+  fuelType: string;
+  status: 'Available' | 'Sold' | 'Reserved';
+  images: string[];
+  createdAt: string;
+  dealer: string;
 }
 
 export function InventoryPage() {
@@ -26,15 +28,15 @@ export function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch inventory data from API
   const fetchInventory = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Use getMyListings to only fetch the current dealer's listings
-      const data = await carAPI.getMyListings();
-      setInventory(data);
+      if (!user?._id) {
+        throw new Error('User not authenticated');
+      }
+      const response = await carAPI.getMyListings(user._id);
+      setInventory(response);
     } catch (err) {
       setError('Failed to load inventory. Please try again.');
       console.error('Error fetching inventory:', err);
@@ -45,16 +47,13 @@ export function InventoryPage() {
 
   useEffect(() => {
     fetchInventory();
-  }, []);
+  }, [user]);
 
-  const updateCarStatus = async (carId: string, status: 'active' | 'sold' | 'archived') => {
+  const updateCarStatus = async (carId: string, status: 'Available' | 'Sold' | 'Reserved') => {
     try {
-      // Update status via API
       await carAPI.updateCarStatus(carId, status);
-      
-      // Update local state after successful API call
-      setInventory(prev => 
-        prev.map(car => car.id === carId ? { ...car, status } : car)
+      setInventory(prev =>
+        prev.map(car => (car._id === carId ? { ...car, status } : car))
       );
     } catch (err) {
       setError(`Failed to update car status: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -64,26 +63,23 @@ export function InventoryPage() {
   const deleteCar = async (carId: string) => {
     if (window.confirm('Are you sure you want to delete this listing?')) {
       try {
-        // Delete car via API
         await carAPI.deleteCar(carId);
-        
-        // Update local state after successful API call
-        setInventory(prev => prev.filter(car => car.id !== carId));
+        setInventory(prev => prev.filter(car => car._id !== carId));
       } catch (err) {
         setError(`Failed to delete car: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
   };
 
-  const filteredInventory = filterStatus === 'all' 
-    ? inventory 
+  const filteredInventory = filterStatus === 'all'
+    ? inventory
     : inventory.filter(car => car.status === filterStatus);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -96,15 +92,14 @@ export function InventoryPage() {
     );
   }
 
-  // Check if the user is a dealer
-  if (!user || user.role !== 'dealer') {
+  if (!user) {
     return (
       <div className="p-6 flex flex-col items-center justify-center h-64">
         <AlertCircle className="w-8 h-8 text-red-500 mb-4" />
         <h2 className="text-xl font-bold text-gray-800 mb-2">Access Denied</h2>
-        <p className="text-gray-600 mb-4">You must be a registered dealer to view and manage inventory.</p>
+        <p className="text-gray-600 mb-4">You must be logged in to view and manage inventory.</p>
         <Link to="/login" className="bg-primary hover:bg-primary-hover text-black px-4 py-2 rounded-lg transition-colors">
-          Login as Dealer
+          Login
         </Link>
       </div>
     );
@@ -122,19 +117,16 @@ export function InventoryPage() {
           List New Car
         </Link>
       </div>
-      
+
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
           {error}
-          <button 
-            onClick={fetchInventory} 
-            className="ml-4 underline hover:text-red-800"
-          >
+          <button onClick={fetchInventory} className="ml-4 underline hover:text-red-800">
             Try Again
           </button>
         </div>
       )}
-      
+
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <div className="flex gap-4 mb-4 flex-wrap">
           <button
@@ -144,25 +136,25 @@ export function InventoryPage() {
             All ({inventory.length})
           </button>
           <button
-            onClick={() => setFilterStatus('active')}
-            className={`px-4 py-2 rounded-lg ${filterStatus === 'active' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+            onClick={() => setFilterStatus('Available')}
+            className={`px-4 py-2 rounded-lg ${filterStatus === 'Available' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
           >
-            Active ({inventory.filter(car => car.status === 'active').length})
+            Available ({inventory.filter(car => car.status === 'Available').length})
           </button>
           <button
-            onClick={() => setFilterStatus('sold')}
-            className={`px-4 py-2 rounded-lg ${filterStatus === 'sold' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+            onClick={() => setFilterStatus('Sold')}
+            className={`px-4 py-2 rounded-lg ${filterStatus === 'Sold' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
           >
-            Sold ({inventory.filter(car => car.status === 'sold').length})
+            Sold ({inventory.filter(car => car.status === 'Sold').length})
           </button>
           <button
-            onClick={() => setFilterStatus('archived')}
-            className={`px-4 py-2 rounded-lg ${filterStatus === 'archived' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+            onClick={() => setFilterStatus('Reserved')}
+            className={`px-4 py-2 rounded-lg ${filterStatus === 'Reserved' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
           >
-            Archived ({inventory.filter(car => car.status === 'archived').length})
+            Reserved ({inventory.filter(car => car.status === 'Reserved').length})
           </button>
         </div>
-        
+
         {filteredInventory.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             No cars found in this category.
@@ -182,69 +174,73 @@ export function InventoryPage() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredInventory.map(car => (
-                  <tr key={car.id} className="hover:bg-gray-50">
+                  <tr key={car._id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="w-16 h-12 overflow-hidden rounded">
-                        <img src={car.image || (car.images && car.images.length > 0 ? car.images[0].url : '')} alt={car.title} className="w-full h-full object-cover" />
+                        <img
+                          src={car.images && car.images.length > 0 ? car.images[0] : '/placeholder.png'}
+                          alt={`${car.make} ${car.model}`}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div>
-                        <div className="font-medium">{car.title}</div>
+                        <div className="font-medium">{car.make} {car.model}</div>
                         <div className="text-sm text-gray-500">{car.year} · {car.mileage.toLocaleString()} km · {car.condition}</div>
                       </div>
                     </td>
                     <td className="px-4 py-3 font-medium">KSh {car.price.toLocaleString()}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        car.status === 'active' ? 'bg-green-100 text-green-800' : 
-                        car.status === 'sold' ? 'bg-blue-100 text-blue-800' : 
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {car.status.charAt(0).toUpperCase() + car.status.slice(1)}
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          car.status === 'Available' ? 'bg-green-100 text-green-800' :
+                          car.status === 'Sold' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {car.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {formatDate(car.listingDate)}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{formatDate(car.createdAt)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
-                        {car.status !== 'sold' && (
+                        {car.status !== 'Sold' && (
                           <button
-                            onClick={() => updateCarStatus(car.id, 'sold')}
-                            className="p-1 hover:bg-green-100 hover:text-green-800 rounded"
+                            onClick={() => updateCarStatus(car._id, 'Sold')}
+                            className="p-1 hover:bg-blue-100 hover:text-blue-800 rounded"
                             title="Mark as Sold"
                           >
                             <Check className="w-5 h-5" />
                           </button>
                         )}
-                        {car.status === 'active' && (
+                        {car.status !== 'Reserved' && (
                           <button
-                            onClick={() => updateCarStatus(car.id, 'archived')}
-                            className="p-1 hover:bg-gray-100 hover:text-gray-800 rounded"
-                            title="Archive Listing"
+                            onClick={() => updateCarStatus(car._id, 'Reserved')}
+                            className="p-1 hover:bg-yellow-100 hover:text-yellow-800 rounded"
+                            title="Mark as Reserved"
                           >
                             <X className="w-5 h-5" />
                           </button>
                         )}
-                        {car.status === 'archived' && (
+                        {car.status !== 'Available' && (
                           <button
-                            onClick={() => updateCarStatus(car.id, 'active')}
+                            onClick={() => updateCarStatus(car._id, 'Available')}
                             className="p-1 hover:bg-green-100 hover:text-green-800 rounded"
-                            title="Restore Listing"
+                            title="Mark as Available"
                           >
-                            <Check className="w-5 h-5" />
+                            <Car className="w-5 h-5" />
                           </button>
                         )}
                         <Link
-                          to={`/edit-car/${car.id}`}
+                          to={`/edit-car/${car._id}`}
                           className="p-1 hover:bg-blue-100 hover:text-blue-800 rounded"
                           title="Edit Listing"
                         >
                           <Edit className="w-5 h-5" />
                         </Link>
                         <button
-                          onClick={() => deleteCar(car.id)}
+                          onClick={() => deleteCar(car._id)}
                           className="p-1 hover:bg-red-100 hover:text-red-800 rounded"
                           title="Delete Listing"
                         >

@@ -3,10 +3,13 @@ import { authAPI } from '../services/api';
 
 // Define user interface
 interface User {
-  id: string;
+  _id: string;
   name: string;
   email: string;
-  role: 'admin' | 'dealer' | 'customer';
+  phone?: string;
+  whatsapp?: string;
+  location?: string;
+  profileImage?: string;
 }
 
 // Define auth context interface
@@ -15,7 +18,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (formData: FormData) => Promise<void>; // Updated to accept FormData
   logout: () => Promise<void>;
 }
 
@@ -60,27 +63,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuthStatus();
   }, []);
 
-  // Login function
+  // Login function (unchanged)
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Temporarily bypass the API call since there's no backend yet
-      // In a real app, this would be: const userData = await authAPI.login(email, password);
-      // Using password parameter in a comment to avoid lint error
-      console.log(`Login attempt with password length: ${password.length}`);
-      
-      const mockUserData: User = {
-        id: '1',
-        name: 'Demo User',
-        email: email,
-        role: 'dealer'
-      };
-      
-      // Store in localStorage to persist across page refreshes
-      localStorage.setItem('currentUser', JSON.stringify(mockUserData));
-      setUser(mockUserData);
+      const response = await authAPI.login(email, password);
+      const { token, ...userData } = response; // Assuming API returns { token, ...userFields }
+      setUser(userData);
+      localStorage.setItem('token', token);
+      console.log('token is :', token);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login');
       throw err;
@@ -89,13 +82,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Register function
-  const register = async (email: string, password: string, name: string) => {
+  // Register function (updated to handle FormData)
+  const register = async (formData: FormData) => {
     try {
       setLoading(true);
       setError(null);
-      const userData = await authAPI.register(email, password, name);
+      const response = await authAPI.register(formData);
+      const { token, ...userData } = response; // Assuming API returns { token, ...userFields }
       setUser(userData);
+      localStorage.setItem('token', token);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to register');
       throw err;
@@ -104,13 +100,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Logout function
+  // Logout function (unchanged)
   const logout = async () => {
     try {
       setLoading(true);
       setError(null);
       await authAPI.logout();
       setUser(null);
+      localStorage.removeItem('token');
       localStorage.removeItem('currentUser');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to logout');

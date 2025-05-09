@@ -1,38 +1,50 @@
-import { useState, FormEvent, ChangeEvent, KeyboardEvent } from 'react';
+import { useState, ChangeEvent, KeyboardEvent } from 'react';
 import { Camera, Loader, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { carAPI } from '../../services/api';
 
 interface CarFormData {
-  title: string;
+  name: string;
+  make: string;
+  model: string;
   year: number;
   price: number;
-  location: string;
   mileage: number;
-  condition: 'Excellent' | 'Good' | 'Fair';
-  description: string;
-  features?: string[];
+  condition: 'New' | 'Used' | 'Certified Pre-Owned';
+  transmission: 'Automatic' | 'Manual' | 'CVT' | 'Semi-Automatic';
+  engineSize: string;
+  fuelType: 'Petrol' | 'Diesel' | 'Electric' | 'Hybrid' | 'CNG' | 'LPG';
+  bodyType: 'Sedan' | 'SUV' | 'Hatchback' | 'Coupe' | 'Convertible' | 'Wagon' | 'Van' | 'Truck';
+  color: string;
+  safetyFeatures: string[];
+  comfortFeatures: string[];
+  images: File[];
+  status: 'Available' | 'Sold' | 'Reserved';
 }
 
 export function ListCarForm() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<CarFormData>({
-    title: '',
+    name: '',
+    make: '',
+    model: '',
     year: new Date().getFullYear(),
     price: 0,
-    location: '',
     mileage: 0,
-    condition: 'Good',
-    description: '',
+    condition: 'New',
+    transmission: 'Automatic',
+    engineSize: '',
+    fuelType: 'Petrol',
+    bodyType: 'Sedan',
+    color: '',
+    safetyFeatures: [],
+    comfortFeatures: [],
+    images: [],
+    status: 'Available',
   });
-  
-  // Features state
-  const [features, setFeatures] = useState<string[]>([]);
-  const [featureInput, setFeatureInput] = useState('');
-  
-  // State for image uploads
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [safetyFeatureInput, setSafetyFeatureInput] = useState('');
+  const [comfortFeatureInput, setComfortFeatureInput] = useState('');
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,118 +52,93 @@ export function ListCarForm() {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'price' || name === 'mileage' || name === 'year' ? Number(value) : value
+      [name]: name === 'price' || name === 'mileage' || name === 'year' ? Number(value) : value,
     }));
   };
 
-  // Feature handling methods
-  const handleFeatureKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    const inputValue = featureInput.trim();
-    
-    // Add feature on Enter or comma
+  const handleFeatureKeyDown = (e: KeyboardEvent<HTMLInputElement>, type: 'safety' | 'comfort') => {
+    const inputValue = (type === 'safety' ? safetyFeatureInput : comfortFeatureInput).trim();
+    const features = type === 'safety' ? formData.safetyFeatures : formData.comfortFeatures;
+    const setFeatures = (newFeatures: string[]) =>
+      setFormData(prev => ({ ...prev, [type === 'safety' ? 'safetyFeatures' : 'comfortFeatures']: newFeatures }));
+
     if ((e.key === 'Enter' || e.key === ',') && inputValue) {
       e.preventDefault();
-      
-      // Prevent duplicate features
       if (!features.includes(inputValue)) {
-        setFeatures(prev => [...prev, inputValue]);
+        setFeatures([...features, inputValue]);
       }
-      
-      // Clear input
-      setFeatureInput('');
+      type === 'safety' ? setSafetyFeatureInput('') : setComfortFeatureInput('');
     }
-    
-    // Remove last feature on Backspace if input is empty
+
     if (e.key === 'Backspace' && inputValue === '' && features.length > 0) {
-      setFeatures(prev => prev.slice(0, -1));
+      setFeatures(features.slice(0, -1));
     }
   };
 
-  const removeFeature = (featureToRemove: string) => {
-    setFeatures(prev => prev.filter(feature => feature !== featureToRemove));
+  const removeFeature = (featureToRemove: string, type: 'safety' | 'comfort') => {
+    const features = type === 'safety' ? formData.safetyFeatures : formData.comfortFeatures;
+    setFormData(prev => ({
+      ...prev,
+      [type === 'safety' ? 'safetyFeatures' : 'comfortFeatures']: features.filter(f => f !== featureToRemove),
+    }));
   };
 
-  // Handle image selection
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
-      
-      // Validate file types
-      const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
-      if (invalidFiles.length > 0) {
-        setError('Please select only image files (JPEG, PNG, etc.)');
-        return;
-      }
-      
-      // Validate file size (max 5MB per file)
-      const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
-      if (oversizedFiles.length > 0) {
-        setError('Some images exceed the maximum file size of 5MB');
-        return;
-      }
-      
-      // Validate maximum number of images (10)
-      if (selectedImages.length + files.length > 10) {
-        setError('You can upload a maximum of 10 images');
-        return;
-      }
-      
-      setError(null);
-      
-      // Update selected files
-      setSelectedImages(prev => [...prev, ...files]);
-      
-      // Create preview URLs
-      const newPreviewUrls = files.map(file => URL.createObjectURL(file));
-      setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const files = Array.from(e.target.files);
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      setError('Please select only image files (JPEG, PNG, etc.)');
+      return;
     }
+
+    const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      setError('Some images exceed the maximum file size of 5MB');
+      return;
+    }
+
+    if (formData.images.length + files.length > 10) {
+      setError('You can upload a maximum of 10 images');
+      return;
+    }
+
+    setError(null);
+    setFormData(prev => ({ ...prev, images: [...prev.images, ...files] }));
+    const newPreviewUrls = files.map(file => URL.createObjectURL(file));
+    setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
   };
 
-  // Remove an image
   const removeImage = (index: number) => {
-    // Revoke the object URL to prevent memory leaks
     URL.revokeObjectURL(previewUrls[index]);
-    
-    // Remove the image and its preview
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate that at least one image is selected
-    if (selectedImages.length === 0) {
+    if (formData.images.length === 0) {
       setError('Please add at least one image of the car');
       return;
     }
-    
+
     setIsSubmitting(true);
     setError(null);
-    
+
     try {
-      // Create FormData object to send files and form data
       const formDataToSend = new FormData();
-      
-      // Append car details
       Object.entries(formData).forEach(([key, value]) => {
-        formDataToSend.append(key, value.toString());
+        if (key === 'images') {
+          value.forEach((image: File) => formDataToSend.append('images', image));
+        } else if (Array.isArray(value)) {
+          formDataToSend.append(key, JSON.stringify(value));
+        } else {
+          formDataToSend.append(key, value.toString());
+        }
       });
-      
-      // Append features if any
-      if (features.length > 0) {
-        formDataToSend.append('features', JSON.stringify(features));
-      }
-      
-      // Append images
-      selectedImages.forEach(image => {
-        formDataToSend.append('images', image);
-      });
-      
-      // Send data to API
+
       await carAPI.createCar(formDataToSend);
-      
-      // Navigate to inventory page on success
       navigate('/inventory');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to list car. Please try again.');
@@ -163,28 +150,48 @@ export function ListCarForm() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">List Your Car</h1>
-      
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
-          {error}
-        </div>
-      )}
-      
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-2">Car Title</label>
+            <label className="block text-sm font-medium mb-2">Car Name</label>
             <input
               type="text"
-              name="title"
-              value={formData.title}
+              name="name"
+              value={formData.name}
               onChange={handleChange}
-              placeholder="e.g. 2020 Toyota Land Cruiser V8"
+              placeholder="e.g. Toyota Land Cruiser"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             />
           </div>
-          
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Make</label>
+            <input
+              type="text"
+              name="make"
+              value={formData.make}
+              onChange={handleChange}
+              placeholder="e.g. Toyota"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Model</label>
+            <input
+              type="text"
+              name="model"
+              value={formData.model}
+              onChange={handleChange}
+              placeholder="e.g. Land Cruiser"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-2">Year</label>
             <select
@@ -199,7 +206,7 @@ export function ListCarForm() {
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-2">Price (KSh)</label>
             <input
@@ -213,20 +220,7 @@ export function ListCarForm() {
               min="0"
             />
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">Location</label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="e.g. Nairobi, Kenya"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              required
-            />
-          </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-2">Mileage (km)</label>
             <input
@@ -240,7 +234,7 @@ export function ListCarForm() {
               min="0"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-2">Condition</label>
             <select
@@ -250,27 +244,119 @@ export function ListCarForm() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             >
-              <option value="Excellent">Excellent</option>
-              <option value="Good">Good</option>
-              <option value="Fair">Fair</option>
+              <option value="New">New</option>
+              <option value="Used">Used</option>
+              <option value="Certified Pre-Owned">Certified Pre-Owned</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Transmission</label>
+            <select
+              name="transmission"
+              value={formData.transmission}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            >
+              <option value="Automatic">Automatic</option>
+              <option value="Manual">Manual</option>
+              <option value="CVT">CVT</option>
+              <option value="Semi-Automatic">Semi-Automatic</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Engine Size</label>
+            <input
+              type="text"
+              name="engineSize"
+              value={formData.engineSize}
+              onChange={handleChange}
+              placeholder="e.g. 2.0L"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Fuel Type</label>
+            <select
+              name="fuelType"
+              value={formData.fuelType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            >
+              <option value="Petrol">Petrol</option>
+              <option value="Diesel">Diesel</option>
+              <option value="Electric">Electric</option>
+              <option value="Hybrid">Hybrid</option>
+              <option value="CNG">CNG</option>
+              <option value="LPG">LPG</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Body Type</label>
+            <select
+              name="bodyType"
+              value={formData.bodyType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            >
+              <option value="Sedan">Sedan</option>
+              <option value="SUV">SUV</option>
+              <option value="Hatchback">Hatchback</option>
+              <option value="Coupe">Coupe</option>
+              <option value="Convertible">Convertible</option>
+              <option value="Wagon">Wagon</option>
+              <option value="Van">Van</option>
+              <option value="Truck">Truck</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Color</label>
+            <input
+              type="text"
+              name="color"
+              value={formData.color}
+              onChange={handleChange}
+              placeholder="e.g. Black"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Status</label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              required
+            >
+              <option value="Available">Available</option>
+              <option value="Sold">Sold</option>
+              <option value="Reserved">Reserved</option>
             </select>
           </div>
         </div>
-        
-        {/* Features Input Section */}
+
+        {/* Safety Features Input */}
         <div>
-          <label className="block text-sm font-medium mb-2">Car Features</label>
+          <label className="block text-sm font-medium mb-2">Safety Features</label>
           <div className="relative">
             <div className="w-full px-3 py-2 border border-gray-300 rounded-lg flex flex-wrap items-center gap-2 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
-              {features.map((feature) => (
-                <span 
-                  key={feature} 
-                  className="flex items-center bg-primary text-sm px-2 py-1 rounded-full"
-                >
+              {formData.safetyFeatures.map(feature => (
+                <span key={feature} className="flex items-center bg-primary text-sm px-2 py-1 rounded-full">
                   {feature}
                   <button
                     type="button"
-                    onClick={() => removeFeature(feature)}
+                    onClick={() => removeFeature(feature, 'safety')}
                     className="ml-1 text-gray-500 hover:text-red-500"
                   >
                     <X className="w-3 h-3" />
@@ -279,32 +365,48 @@ export function ListCarForm() {
               ))}
               <input
                 type="text"
-                value={featureInput}
-                onChange={(e) => setFeatureInput(e.target.value)}
-                onKeyDown={handleFeatureKeyDown}
-                placeholder={features.length === 0 ? "Add features (Press Enter to add)" : ""}
+                value={safetyFeatureInput}
+                onChange={e => setSafetyFeatureInput(e.target.value)}
+                onKeyDown={e => handleFeatureKeyDown(e, 'safety')}
+                placeholder={formData.safetyFeatures.length === 0 ? 'Add safety features (Press Enter to add)' : ''}
                 className="flex-grow outline-none bg-transparent ml-1"
               />
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
-            Add features by typing and pressing Enter. Separate multiple features.
-          </p>
+          <p className="mt-2 text-xs text-gray-500">Add safety features by typing and pressing Enter or comma.</p>
         </div>
-        
+
+        {/* Comfort Features Input */}
         <div>
-          <label className="block text-sm font-medium mb-2">Description</label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="Provide details about your car..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent h-32"
-            required
-          ></textarea>
+          <label className="block text-sm font-medium mb-2">Comfort Features</label>
+          <div className="relative">
+            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg flex flex-wrap items-center gap-2 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+              {formData.comfortFeatures.map(feature => (
+                <span key={feature} className="flex items-center bg-primary text-sm px-2 py-1 rounded-full">
+                  {feature}
+                  <button
+                    type="button"
+                    onClick={() => removeFeature(feature, 'comfort')}
+                    className="ml-1 text-gray-500 hover:text-red-500"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={comfortFeatureInput}
+                onChange={e => setComfortFeatureInput(e.target.value)}
+                onKeyDown={e => handleFeatureKeyDown(e, 'comfort')}
+                placeholder={formData.comfortFeatures.length === 0 ? 'Add comfort features (Press Enter to add)' : ''}
+                className="flex-grow outline-none bg-transparent ml-1"
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">Add comfort features by typing and pressing Enter or comma.</p>
         </div>
-        
-        {/* Rest of the form remains the same */}
+
+        {/* Image Upload Section */}
         <div>
           <label className="block text-sm font-medium mb-2">Images</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -332,11 +434,15 @@ export function ListCarForm() {
               />
             </label>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
-            Upload up to 10 images. Max 5MB per image. Supported formats: JPEG, PNG, GIF.
-          </p>
+          <p className="mt-2 text-xs text-gray-500">Upload up to 10 images. Max 5MB per image. Supported formats: JPEG, PNG, GIF.</p>
         </div>
-        
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
         <div className="pt-4">
           <button
             type="submit"
