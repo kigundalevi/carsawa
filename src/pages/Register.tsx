@@ -1,7 +1,7 @@
 import { useState, FormEvent, ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader, UserPlus, Camera, X } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+
 
 /**
  * Register Page Component
@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
  */
 export function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,6 +62,29 @@ export function Register() {
     e.preventDefault();
     setError(null);
 
+    // Validate all required fields
+    if (!name.trim()) {
+      setError('Name is required');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (!password) {
+      setError('Password is required');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -72,23 +95,83 @@ export function Register() {
       return;
     }
 
+    if (!phone.trim()) {
+      setError('Phone number is required');
+      return;
+    }
+
+    if (!whatsapp.trim()) {
+      setError('WhatsApp number is required');
+      return;
+    }
+
+    if (!location.trim()) {
+      setError('Location is required');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      // Create FormData object
       const formData = new FormData();
-      formData.append('name', name);
-      formData.append('email', email);
+      
+      // Append all required fields
+      formData.append('name', name.trim());
+      formData.append('email', email.trim());
       formData.append('password', password);
-      formData.append('phone', phone);
-      formData.append('whatsapp', whatsapp);
-      formData.append('location', location);
+      formData.append('phone', phone.trim());
+      formData.append('whatsapp', whatsapp.trim());
+      formData.append('location', location.trim());
+      
+      // Only append profile image if one was selected
       if (profileImage) {
         formData.append('profileImage', profileImage);
       }
 
-      await register(formData);
-      navigate('/dashboard');
+      console.log('Submitting registration with fields:', Array.from(formData.keys()));
+
+      try {
+        // Manual API call to debug the issue
+        const API_BASE_URL = 'https://carsawa-backend-6zf3.onrender.com';
+        const url = `${API_BASE_URL}/api/auth/register`;
+
+        const response = await fetch(url, {
+          method: 'POST',
+          body: formData,
+        });
+
+        console.log('Registration response status:', response.status);
+        
+        if (!response.ok) {
+          // Try to get detailed error message
+          let errorMessage = `Error: ${response.status} ${response.statusText}`;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {
+            const textError = await response.text();
+            if (textError) errorMessage = textError;
+          }
+          throw new Error(errorMessage);
+        }
+
+        // Parse successful response
+        const data = await response.json();
+        
+        // Save user data and token (similar to what AuthContext does)
+        const { token, ...userData } = data;
+        localStorage.setItem('token', token);
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        
+        // Redirect to dashboard
+        navigate('/dashboard');
+      } catch (fetchError) {
+        console.error('Direct fetch error:', fetchError);
+        throw fetchError; // Re-throw to be caught by outer try/catch
+      }
     } catch (err) {
+      console.error('Registration error:', err);
       setError(err instanceof Error ? err.message : 'Failed to register. Please try again.');
     } finally {
       setIsSubmitting(false);

@@ -25,21 +25,33 @@ const getHeaders = (contentType?: string) => {
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
     console.error(`HTTP error! status: ${response.status}, statusText: ${response.statusText}`);
-    let errorMessage = 'An error occurred';
+    let errorMessage = `API Error: ${response.status} ${response.statusText}`;
+    
     try {
       const contentType = response.headers.get('Content-Type');
       if (contentType && contentType.includes('application/json')) {
         const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
+        console.log('Error response data:', errorData);
+        errorMessage = errorData.message || errorData.error || errorMessage;
       } else {
-        errorMessage = await response.text() || errorMessage;
+        const textError = await response.text();
+        console.log('Error response text:', textError);
+        errorMessage = textError || errorMessage;
       }
     } catch (e) {
       console.error('Failed to parse error response:', e);
     }
+    
     throw new Error(errorMessage);
   }
-  return response.json();
+  
+  // Make sure we can parse the response
+  try {
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to parse success response as JSON:', error);
+    throw new Error('Invalid response format from server');
+  }
 };
 
 // Authentication API calls
@@ -52,13 +64,19 @@ export const authAPI = {
     const url = `${API_BASE_URL}/api/auth/register`;
   
     try {
+      // Log the FormData entries for debugging
+      console.log('Submitting registration with fields:', Array.from(formData.keys()));
+      
       const response = await fetch(url, {
         method: 'POST',
         body: formData,
+        // Don't set Content-Type header, let the browser set it with the boundary parameter for FormData
       });
+      
+      console.log('Registration response status:', response.status);
       return await handleResponse(response);
     } catch (error) {
-      console.error('Fetch error details:', error); // Log the exact error
+      console.error('Registration error details:', error);
       throw error; // Re-throw to handle it in the calling code
     }
   },

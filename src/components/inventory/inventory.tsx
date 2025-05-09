@@ -32,11 +32,26 @@ export function InventoryPage() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Make sure user is authenticated and has an ID
       if (!user?._id) {
         throw new Error('User not authenticated');
       }
+      
+      console.log('Fetching inventory for dealer ID:', user._id);
       const response = await carAPI.getMyListings(user._id);
-      setInventory(response);
+      
+      // Check if response is array or object with cars property
+      if (Array.isArray(response)) {
+        setInventory(response);
+        console.log('Loaded inventory (array):', response.length, 'cars');
+      } else if (response && response.cars && Array.isArray(response.cars)) {
+        setInventory(response.cars);
+        console.log('Loaded inventory (object):', response.cars.length, 'cars');
+      } else {
+        console.error('Unexpected response format:', response);
+        setInventory([]);
+      }
     } catch (err) {
       setError('Failed to load inventory. Please try again.');
       console.error('Error fetching inventory:', err);
