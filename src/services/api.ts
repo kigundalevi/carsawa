@@ -216,14 +216,17 @@ export const carAPI = {
   /**
    * Update an existing car listing
    * @param id Car ID
-   * @param carData Object containing updated car details
+   * @param carData FormData containing updated car details and images
    */
-  updateCar: async (id: string, carData: Record<string, any>) => {
-    const headers = getHeaders('application/json')
+  updateCar: async (id: string, carData: FormData) => {
+    const headers = getHeaders() // Don't set content-type; browser will set it for FormData
+    console.log('Sending update to backend for car ID:', id);
+    console.log('FormData contains fields:', Array.from(carData.keys()));
+    
     const response = await fetch(`${API_BASE_URL}/api/cars/${id}`, {
       method: 'PUT',
       headers: headers,
-      body: JSON.stringify(carData),
+      body: carData, // Send as FormData, not JSON
     });
     return handleResponse(response);
   },
