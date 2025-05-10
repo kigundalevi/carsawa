@@ -25,6 +25,7 @@ export function EditCarPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<CarFormData>({
     title: '',
     year: new Date().getFullYear(),
@@ -37,7 +38,7 @@ export function EditCarPage() {
   });
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State for image handling
   const [images, setImages] = useState<ImageData[]>([]);
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
@@ -46,10 +47,12 @@ export function EditCarPage() {
     // Load car data from API
     const fetchCarData = async () => {
       if (!id) return;
-      
+      setIsLoading(true);
+
       try {
         const car = await carAPI.getCarById(id);
-        
+        console.log('Fetched car data:', car);
+
         setFormData({
           title: car.title,
           year: car.year,
@@ -60,7 +63,7 @@ export function EditCarPage() {
           description: car.description || '',
           status: car.status
         });
-        
+
         // Set images from API response
         if (car.images && car.images.length > 0) {
           setImages(car.images.map((img: any) => ({
@@ -69,10 +72,14 @@ export function EditCarPage() {
           })));
         }
       } catch (err) {
+        console.error('Error fetching car:', err);
         setNotFound(true);
+        setError(err instanceof Error ? err.message : 'Failed to load car details');
+      } finally {
+        setIsLoading(false);
       }
     };
-    
+
     fetchCarData();
   }, [id]);
 
@@ -88,30 +95,30 @@ export function EditCarPage() {
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files);
-      
+
       // Validate file types
       const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
       if (invalidFiles.length > 0) {
         setError('Please select only image files (JPEG, PNG, etc.)');
         return;
       }
-      
+
       // Validate file size (max 5MB per file)
       const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
       if (oversizedFiles.length > 0) {
         setError('Some images exceed the maximum file size of 5MB');
         return;
       }
-      
+
       setError(null);
-      
+
       // Create new image objects with preview URLs
       const newImages = files.map(file => ({
         url: URL.createObjectURL(file),
         file,
         isNew: true
       }));
-      
+
       setImages(prev => [...prev, ...newImages]);
     }
   };
@@ -119,42 +126,53 @@ export function EditCarPage() {
   // Remove an image
   const removeImage = (index: number) => {
     const imageToRemove = images[index];
-    
+
     // If it's a new image with a created object URL, revoke it to prevent memory leaks
     if (imageToRemove.isNew && imageToRemove.file) {
       URL.revokeObjectURL(imageToRemove.url);
     }
-    
+
     // If it's an existing image with an ID, add it to the list of images to delete
     if (imageToRemove.id) {
       setImagesToDelete(prev => [...prev, imageToRemove.id!]);
     }
-    
+
     // Remove the image from the list
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
-    // Validate that at least one image is present
+
+    // Validate that at least one image is present or at least one is scheduled for upload
     if (images.length === 0) {
       setError('Please add at least one image of the car');
       return;
     }
-    
+
+    // Basic form validation
+    if (!formData.title.trim()) {
+      setError('Car title is required');
+      return;
+    }
+
+    if (formData.price <= 0) {
+      setError('Please enter a valid price');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
-    
+
     try {
       // Create FormData object to send files and form data
       const formDataToSend = new FormData();
-      
+
       // Append car details
       Object.entries(formData).forEach(([key, value]) => {
         formDataToSend.append(key, value.toString());
       });
-      
+
       // Append new images
       const newImages = images.filter(img => img.isNew && img.file);
       newImages.forEach(img => {
@@ -162,19 +180,19 @@ export function EditCarPage() {
           formDataToSend.append('newImages', img.file);
         }
       });
-      
+
       // Append existing image IDs to keep
       const existingImageIds = images
         .filter(img => img.id && !img.isNew)
         .map(img => img.id);
       formDataToSend.append('existingImages', JSON.stringify(existingImageIds));
-      
+
       // Append image IDs to delete
       formDataToSend.append('imagesToDelete', JSON.stringify(imagesToDelete));
-      
+
       // Send data to API
       await carAPI.updateCar(id!, formDataToSend);
-      
+
       // Navigate to inventory page on success
       navigate('/inventory');
     } catch (err) {
@@ -183,6 +201,17 @@ export function EditCarPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto text-center">
+        <div className="flex items-center justify-center mb-4">
+          <Loader className="w-8 h-8 animate-spin mr-2" />
+          <h1 className="text-2xl font-bold">Loading Car Details...</h1>
+        </div>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (
