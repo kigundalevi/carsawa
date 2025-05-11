@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Car, Gavel, TrendingUp, DollarSign } from 'lucide-react';
+import { Car, Gavel, TrendingUp, DollarSign, Loader } from 'lucide-react';
 import { StatCard } from '../components/dashboard/StatCard';
 import { BidCard } from '../components/dashboard/BidCard';
 import { ActivityCard } from '../components/dashboard/ActivityCard';
+import { carAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Bid {
   id: string;
@@ -21,52 +23,122 @@ interface Activity {
   type: 'bid' | 'sale' | 'listing';
 }
 
+interface CarListing {
+  _id: string;
+  make: string;
+  model: string;
+  year: number;
+  price: number;
+  status: 'Available' | 'Sold' | 'Reserved';
+  createdAt: string;
+  // other properties as needed
+}
+
 export function Dashboard() {
+  const { user } = useAuth();
   const [activeBids, setActiveBids] = useState<Bid[]>([]);
   const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState({
     totalListings: 0,
-    activeBids: 0,
+    activeBids: 'coming soon',
     salesThisMonth: 6,
     revenue: '4.2M'
   });
 
   useEffect(() => {
-    // Load active bids from localStorage
-    const storedBids = localStorage.getItem('activeBids');
-    if (storedBids) {
-      setActiveBids(JSON.parse(storedBids));
-    }
-
-    // Load recent activities from localStorage
-    const storedActivities = localStorage.getItem('recentActivities');
-    if (storedActivities) {
-      setRecentActivities(JSON.parse(storedActivities));
-    } else {
-      // Set default activities if none exist
-      const defaultActivities = [
-        {
-          id: '1',
-          message: 'Welcome to your dashboard',
-          time: 'Just now',
-          type: 'listing' as const
+    const fetchData = async () => {
+      if (!user?._id) return;
+      
+      setIsLoading(true);
+      try {
+        // Fetch car listings from API
+        const response = await carAPI.getMyListings(user._id);
+        
+        // Process the response
+        let carListings: CarListing[] = [];
+        if (Array.isArray(response)) {
+          carListings = response;
+        } else if (response && response.cars && Array.isArray(response.cars)) {
+          carListings = response.cars;
         }
-      ];
-      setRecentActivities(defaultActivities);
-      localStorage.setItem('recentActivities', JSON.stringify(defaultActivities));
-    }
-
-    // Count total listings from localStorage
-    const carInventory = JSON.parse(localStorage.getItem('carInventory') || '[]');
+        
+        // Count available and sold cars
+        const availableCars = carListings.filter(car => car.status === 'Available').length;
+        const soldCars = carListings.filter(car => car.status === 'Sold');
+        const soldCount = soldCars.length;
+        
+        // Calculate revenue from sold cars
+        const calculateRevenue = () => {
+          // Calculate total revenue from all sold cars
+          const totalRevenue = soldCars.reduce((total, car) => total + car.price, 0);
+          
+          // Format revenue based on magnitude
+          if (totalRevenue >= 1000000) {
+            return (totalRevenue / 1000000).toFixed(1) + 'M';
+          } else if (totalRevenue >= 1000) {
+            return (totalRevenue / 1000).toFixed(1) + 'K';
+          } else {
+            return totalRevenue.toString();
+          }
+        };
+        
+        // Calculate sales for current month
+        const calculateCurrentMonthSales = () => {
+          const currentDate = new Date();
+          const currentMonth = currentDate.getMonth();
+          const currentYear = currentDate.getFullYear();
+          
+          // Filter cars sold in the current month
+          return soldCars.filter(car => {
+            const soldDate = new Date(car.createdAt);
+            return soldDate.getMonth() === currentMonth && soldDate.getFullYear() === currentYear;
+          }).length;
+        };
+        
+        const currentMonthSales = calculateCurrentMonthSales();
+        const revenue = calculateRevenue();
+        
+        // Load active bids from localStorage
+        const storedBids = localStorage.getItem('activeBids');
+        const parsedBids = storedBids ? JSON.parse(storedBids) : [];
+        setActiveBids(parsedBids);
+        
+        // Load recent activities from localStorage
+        const storedActivities = localStorage.getItem('recentActivities');
+        if (storedActivities) {
+          setRecentActivities(JSON.parse(storedActivities));
+        } else {
+          // Set default activities if none exist
+          const defaultActivities = [
+            {
+              id: '1',
+              message: 'Welcome to your dashboard',
+              time: 'Just now',
+              type: 'listing' as const
+            }
+          ];
+          setRecentActivities(defaultActivities);
+          localStorage.setItem('recentActivities', JSON.stringify(defaultActivities));
+        }
+        
+        // Update stats with real data
+        setStats({
+          totalListings: carListings.length,
+          activeBids: parsedBids.length,
+          salesThisMonth: currentMonthSales,
+          revenue: revenue
+        });
+        
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Update stats
-    setStats({
-      totalListings: carInventory.length,
-      activeBids: storedBids ? JSON.parse(storedBids).length : 0,
-      salesThisMonth: 6,
-      revenue: '4.2M'
-    });
-  }, []);
+    fetchData();
+  }, [user]);
 
   return (
     <div className="space-y-8">
@@ -81,24 +153,28 @@ export function Dashboard() {
           value={stats.totalListings.toString()}
           icon={Car}
           trend={{ value: 12, isPositive: true }}
+          isLoading={isLoading}
         />
         <StatCard
           title="Active Bids"
           value={stats.activeBids.toString()}
           icon={Gavel}
           trend={{ value: 5, isPositive: true }}
+          isLoading={isLoading}
         />
         <StatCard
           title="Sales This Month"
           value={stats.salesThisMonth.toString()}
           icon={TrendingUp}
           trend={{ value: 8, isPositive: false }}
+          isLoading={isLoading}
         />
         <StatCard
           title="Revenue (KSh)"
           value={stats.revenue}
           icon={DollarSign}
           trend={{ value: 15, isPositive: true }}
+          isLoading={isLoading}
         />
       </div>
 

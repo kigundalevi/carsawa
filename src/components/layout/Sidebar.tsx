@@ -1,9 +1,6 @@
 import { 
   LayoutDashboard, 
-  Car, 
   ClipboardList, 
-  Gavel, 
-  Receipt, 
   UserCircle,
   ChevronLeft,
   LogOut,
@@ -27,10 +24,7 @@ interface DealerProfile {
 
 const navigation = [
   { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { name: 'Car Listings', to: '/listings', icon: Car },
   { name: 'Inventory', to: '/inventory', icon: ClipboardList },
-  { name: 'Bids', to: '/bids', icon: Gavel },
-  { name: 'Transactions', to: '/transactions', icon: Receipt },
 ];
 
 export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {

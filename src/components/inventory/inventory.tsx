@@ -39,7 +39,7 @@ export function InventoryPage() {
       }
       
       console.log('Fetching inventory for dealer ID:', user._id);
-      const response = await carAPI.getMyListings(user._id);
+      const response = await carAPI.getMyListings(user._id); 
       
       // Check if response is array or object with cars property
       if (Array.isArray(response)) {
