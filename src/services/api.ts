@@ -122,20 +122,12 @@ export const authAPI = {
    * Update user profile
    * @param profileData Object containing profile information to update
    */
-  updateProfile: async (profileData: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    whatsapp?: string;
-    location?: string;
-    profileImage?: string;
-    password?: string;
-  }) => {
-    const headers = getHeaders('application/json')
+  updateProfile: async (formData: FormData) => {
+    const headers = getHeaders();
     const response = await fetch(`${API_BASE_URL}/api/auth/update-profile`, {
       method: 'PUT',
       headers: headers,
-      body: JSON.stringify(profileData),
+      body: formData,
     });
     return handleResponse(response);
   },

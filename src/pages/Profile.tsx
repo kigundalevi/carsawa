@@ -1,5 +1,5 @@
 import { useState, useEffect, ChangeEvent } from 'react';
-import { Mail, MapPin, Phone, Save } from 'lucide-react';
+import { Mail, MapPin, Phone, Save, Camera, X } from 'lucide-react';
 import { authAPI } from '../services/api';
 
 interface DealerProfile {
@@ -23,6 +23,8 @@ export function Profile() {
     location: '',
     profileImage: '',
   });
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,14 +50,39 @@ export function Profile() {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (name === 'location') {
-      setFormData(prev => ({
-        ...prev,
-        location: value,
-      }));
-    } else{
-      setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file (JPEG, PNG, etc.)');
+      return;
     }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image exceeds the maximum file size of 5MB');
+      return;
+    }
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    setSelectedImage(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setError(null);
+  };
+
+  const removeImage = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedImage(null);
+    setPreviewUrl(null);
   };
 
   const handleSave = async () => {
@@ -63,16 +90,21 @@ export function Profile() {
     setError(null);
 
     try {
-      const updatedProfile = await authAPI.updateProfile({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        whatsapp: formData.whatsapp,
-        location: formData.location,
-        profileImage: formData.profileImage,
-      });
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('phone', formData.phone);
+      formDataToSend.append('whatsapp', formData.whatsapp);
+      formDataToSend.append('location', formData.location);
+      if (selectedImage) {
+        formDataToSend.append('profileImage', selectedImage);
+      }
+
+      const updatedProfile = await authAPI.updateProfile(formDataToSend);
       setProfile(updatedProfile);
       setFormData(updatedProfile);
+      setSelectedImage(null);
+      setPreviewUrl(null);
       setIsEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save profile');
@@ -83,9 +115,21 @@ export function Profile() {
 
   const handleCancel = () => {
     setFormData(profile || formData);
-    setError(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedImage(null);
+    setPreviewUrl(null);
     setIsEditing(false);
   };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   if (!profile) {
     return (
@@ -96,7 +140,7 @@ export function Profile() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Dealer Profile</h1>
         <p className="text-gray-600 mt-1">Manage your personal information and preferences</p>
@@ -110,12 +154,44 @@ export function Profile() {
 
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
-          <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100">
-            <img
-              src={profile.profileImage || '/default-avatar.png'}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
+          <div className="relative w-32 h-32">
+            {isEditing ? (
+              <label className="cursor-pointer block w-full h-full">
+                <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100">
+                  <img
+                    src={previewUrl || formData.profileImage || '/default-avatar.png'}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute bottom-0 right-0 bg-white p-1 rounded-full shadow">
+                  <Camera className="w-5 h-5 text-gray-600" />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+              </label>
+            ) : (
+              <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100">
+                <img
+                  src={profile.profileImage || '/default-avatar.png'}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            {previewUrl && isEditing && (
+              <button
+                type="button"
+                onClick={removeImage}
+                className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <div className="flex-1">
             {!isEditing && (
@@ -237,92 +313,8 @@ export function Profile() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
-            <div>
-              <label htmlFor="profileImage" className="block text-sm font-medium mb-1">Profile Image URL</label>
-              <input
-                id="profileImage"
-                name="profileImage"
-                type="text"
-                value={formData.profileImage}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
           </div>
         )}
-      </div>
-
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Account Statistics</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Active Listings</span>
-              <span className="font-semibold">12</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Completed Sales</span>
-              <span className="font-semibold">47</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Active Bids</span>
-              <span className="font-semibold">8</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Member Since</span>
-              <span className="font-semibold">March 2023</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Preferences</h3>
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="emailNotifications"
-                className="h-4 w-4 text-primary rounded focus:ring-primary"
-                defaultChecked
-              />
-              <label htmlFor="emailNotifications" className="ml-2 text-gray-600">
-                Email Notifications
-              </label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="smsNotifications"
-                className="h-4 w-4 text-primary rounded focus:ring-primary"
-                defaultChecked
-              />
-              <label htmlFor="smsNotifications" className="ml-2 text-gray-600">
-                SMS Notifications
-              </label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="marketingEmails"
-                className="h-4 w-4 text-primary rounded focus:ring-primary"
-              />
-              <label htmlFor="marketingEmails" className="ml-2 text-gray-600">
-                Marketing Emails
-              </label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="publicProfile"
-                className="h-4 w-4 text-primary rounded focus:ring-primary"
-                defaultChecked
-              />
-              <label htmlFor="publicProfile" className="ml-2 text-gray-600">
-                Public Profile
-              </label>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
