@@ -106,6 +106,12 @@ export function Profile() {
       setSelectedImage(null);
       setPreviewUrl(null);
       setIsEditing(false);
+      
+      // Notify other components that profile has been updated using a custom event
+      const profileUpdateEvent = new CustomEvent('profileUpdated', { 
+        detail: { timestamp: Date.now(), profileImage: updatedProfile.profileImage } 
+      });
+      window.dispatchEvent(profileUpdateEvent);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save profile');
     } finally {

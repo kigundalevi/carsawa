@@ -33,22 +33,49 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
     name: 'Loading...',
     profileImage: '/default-avatar.png'
   });
-
+  
+  // Listen for profile update events
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const userData = await authAPI.getCurrentUser();
-        setDealer({
-          name: userData.name,
-          profileImage: userData.profileImage
-        });
-      } catch (err) {
-        console.error('Failed to fetch profile:', err);
-        // Optionally handle error, e.g., redirect to login
+    // Define the event handler for profile updates
+    const handleProfileUpdate = (event: Event) => {
+      // Type assertion for the custom event
+      const customEvent = event as CustomEvent<{ timestamp: number, profileImage: string }>;
+      
+      // If the event contains a new profile image, update it immediately without a fetch
+      if (customEvent.detail?.profileImage) {
+        setDealer(prev => ({
+          ...prev,
+          profileImage: customEvent.detail.profileImage
+        }));
+      } else {
+        // Otherwise fetch the full profile
+        fetchProfile();
       }
     };
+    
+    // Fetch profile on initial render
     fetchProfile();
+    
+    // Add event listener for profileUpdated events
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
+    // Clean up event listener
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
   }, []);
+  
+  // Function to fetch profile data
+  const fetchProfile = async () => {
+    try {
+      const userData = await authAPI.getCurrentUser();
+      setDealer({
+        name: userData.name,
+        profileImage: userData.profileImage
+      });
+    } catch (err) {
+      console.error('Failed to fetch profile:', err);
+      // Optionally handle error, e.g., redirect to login
+    }
+  };
 
   const handleLogout = async () => {
     try {
