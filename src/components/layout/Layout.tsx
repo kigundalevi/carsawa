@@ -19,6 +19,12 @@ export function Layout() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  const closeMobileMenu = () => {
+    if (isMobileMenuOpen) {
+      setIsMobileMenuOpen(false);
+    }
+  };
+
   // Load sidebar state from localStorage on component mount
   useEffect(() => {
     const savedState = localStorage.getItem('sidebarCollapsed');
@@ -27,53 +33,44 @@ export function Layout() {
     }
   }, []);
 
-  // Handle clicks outside the sidebar to collapse it
+  // Handle clicks outside the sidebar to collapse/close it
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      
       // For desktop: collapse expanded sidebar when clicking outside
       if (!isCollapsed && window.innerWidth >= 768) {
         if (
           sidebarRef.current && 
-          !sidebarRef.current.contains(event.target as Node) &&
+          !sidebarRef.current.contains(target) &&
           toggleButtonRef.current && 
-          !toggleButtonRef.current.contains(event.target as Node)
+          !toggleButtonRef.current.contains(target)
         ) {
           setIsCollapsed(true);
           localStorage.setItem('sidebarCollapsed', 'true');
         }
       }
       
-      // For mobile: close sidebar when clicking on the overlay
-      // The overlay is already set up to call toggleMobileMenu on click
+      // For mobile: close sidebar when clicking outside
+      if (isMobileMenuOpen && window.innerWidth < 768) {
+        // Check if click is outside the sidebar
+        if (sidebarRef.current && !sidebarRef.current.contains(target)) {
+          closeMobileMenu();
+        }
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isCollapsed]);
+  }, [isCollapsed, isMobileMenuOpen]);
 
   return (
     <div className="min-h-screen bg-gray-100">
       <Header toggleSidebar={toggleMobileMenu} />
-      <div 
-        className={`fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity md:hidden ${
-          isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={toggleMobileMenu}
-      ></div>
-      <div 
-        ref={sidebarRef}
-        className={`md:hidden fixed inset-0 z-40 transition-transform transform ${
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <Sidebar 
-          isCollapsed={false} 
-          toggleCollapse={toggleCollapse} 
-          toggleButtonRef={toggleButtonRef}
-        />
-      </div>
+      
+      {/* Desktop sidebar */}
       <div className="hidden md:block" ref={sidebarRef}>
         <Sidebar 
           isCollapsed={isCollapsed} 
@@ -81,6 +78,30 @@ export function Layout() {
           toggleButtonRef={toggleButtonRef}
         />
       </div>
+      
+      {/* Mobile sidebar */}
+      <div 
+        ref={sidebarRef}
+        className={`md:hidden fixed inset-y-0 left-0 z-40 transition-transform transform ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        style={{ width: '80%', maxWidth: '300px' }}
+      >
+        <Sidebar 
+          isCollapsed={false} 
+          toggleCollapse={toggleCollapse} 
+          toggleButtonRef={toggleButtonRef}
+        />
+      </div>
+      
+      {/* Dark overlay for mobile - visible when sidebar is open */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          aria-hidden="true"
+        />
+      )}
+      
       <main className={`transition-all duration-300 pt-16 ${
         isCollapsed ? 'md:pl-20' : 'md:pl-64'
       }`}>
