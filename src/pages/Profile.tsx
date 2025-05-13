@@ -1,6 +1,7 @@
 import { useState, useEffect, ChangeEvent } from 'react';
 import { Mail, MapPin, Phone, Save, Camera, X } from 'lucide-react';
 import { authAPI } from '../services/api';
+import { FaWhatsapp } from "react-icons/fa";
 
 interface DealerProfile {
   name: string;
@@ -207,7 +208,7 @@ export function Profile() {
                     <span>{profile.phone}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
-                    <Phone className="w-4 h-4" />
+                    <FaWhatsapp className="w-4 h-4" />
                     <span>{profile.whatsapp}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">

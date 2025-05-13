@@ -9,12 +9,13 @@ import {
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, RefObject } from 'react';
 import { authAPI } from '../../services/api';
 
 interface SidebarProps {
   isCollapsed: boolean;
   toggleCollapse: () => void;
+  toggleButtonRef?: RefObject<HTMLDivElement>;
 }
 
 interface DealerProfile {
@@ -27,7 +28,7 @@ const navigation = [
   { name: 'Inventory', to: '/inventory', icon: ClipboardList },
 ];
 
-export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
+export function Sidebar({ isCollapsed, toggleCollapse, toggleButtonRef }: SidebarProps) {
   const navigate = useNavigate();
   const [dealer, setDealer] = useState<DealerProfile>({
     name: 'Loading...',
@@ -69,7 +70,9 @@ export function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
       "transform",
       "md:block"
     )}>
-      <div className="absolute right-0 top-20 bg-secondary rounded-r-md p-1 cursor-pointer hidden md:block"
+      <div 
+        ref={toggleButtonRef}
+        className="absolute right-0 top-20 bg-secondary rounded-r-md p-1 cursor-pointer hidden md:block"
         onClick={toggleCollapse}
       >
         {isCollapsed ? 
