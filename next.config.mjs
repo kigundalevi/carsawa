@@ -4,7 +4,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://carsawa-backend-6zf3.onrender.com/api/:path*',
+        destination: 'http://localhost:5000/api/:path*',
       },
     ];
   },
