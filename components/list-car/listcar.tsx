@@ -1,6 +1,8 @@
+"use client";
+
 import { useState, ChangeEvent, KeyboardEvent } from 'react';
 import { Camera, Loader, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { carAPI } from '../../services/api';
 
 interface CarFormData {
@@ -23,7 +25,7 @@ interface CarFormData {
 }
 
 export function ListCarForm() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<CarFormData>({
     name: '',
@@ -139,7 +141,7 @@ export function ListCarForm() {
       });
 
       await carAPI.createCar(formDataToSend);
-      navigate('/inventory');
+      router.push('/inventory');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to list car. Please try again.');
     } finally {

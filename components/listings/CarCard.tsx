@@ -1,5 +1,5 @@
 import { MapPin, Calendar, Gauge } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { cn } from '../../lib/utils';
 
 interface CarCardProps {
@@ -89,7 +89,7 @@ export function CarCard({ car, className, showBidButton = false }: CarCardProps)
         
         <div className="mt-4 flex flex-col gap-2">
           <Link
-            to={`/car/${car.id}`}
+            href={`/car/${car.id}`}
             className="block w-full bg-primary hover:bg-primary-hover text-black font-medium py-2 rounded-lg transition-colors text-center"
             onClick={handleViewDetails}
           >
