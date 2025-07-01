@@ -1,1 +1,12 @@
-{}
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/register/page": "app/register/page.js",
+  "/(main)/dashboard/page": "app/(main)/dashboard/page.js",
+  "/(main)/cars/[id]/page": "app/(main)/cars/[id]/page.js",
+  "/(main)/edit-car/[id]/page": "app/(main)/edit-car/[id]/page.js",
+  "/(main)/inventory/page": "app/(main)/inventory/page.js",
+  "/(main)/list-car/page": "app/(main)/list-car/page.js",
+  "/(main)/profile/page": "app/(main)/profile/page.js"
+}
