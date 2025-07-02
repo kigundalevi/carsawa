@@ -4,7 +4,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://carsawa-backend-6zf3.onrender.com/api/:path*',
+        destination: 'https://carsawa-backend-6zf3.onrender.com/api/:path*',
       },
     ];
   },
