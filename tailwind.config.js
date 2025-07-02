@@ -8,14 +8,14 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#3563E9', // Rich blue - conveys trust and reliability
-          hover: '#2954D2', // Slightly darker blue for hover states
-          light: '#D6E4FF',
+          DEFAULT: '#c1ff72', // Bright lime green - energetic and modern
+          hover: '#a8e85c', // Slightly darker lime for hover states
+          light: '#d9ffb3', // Lighter tint for backgrounds
         },
         secondary: {
-          DEFAULT: '#1A202C', // Dark slate for text and headers
-          light: '#4A5568', 
-        },
+          DEFAULT: '#272D3C', // Dark blue-gray for text and headers
+          light: '#3a4356', // Lighter version for secondary text
+         },
         accent: {
           DEFAULT: '#FF9F1C', // Warm orange for CTAs and highlights
           hover: '#F08700', // Slightly darker orange for hover states
@@ -35,8 +35,7 @@ export default {
           400: '#CBD5E0', // Medium light gray
           500: '#A0AEC0', // Medium gray
         }
-
-      },
+       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },

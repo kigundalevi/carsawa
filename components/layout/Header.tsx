@@ -1,5 +1,6 @@
-import { Car, Plus, Menu } from 'lucide-react';
+import { Plus, Menu } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -16,8 +17,14 @@ export function Header({ toggleSidebar }: HeaderProps) {
       </button>
       
       <div className="flex items-center gap-2 ml-2">
-        <Car className="w-8 h-8 text-primary" />
-        <span className="text-primary text-xl font-bold">Carsawa</span>
+        <Image 
+          src="/icons/carsawaicon.png" 
+          alt="Carsawa Logo" 
+          width={40} 
+          height={40}
+          className="object-contain"
+        />
+        {/* <span className="text-primary text-xl font-bold">Carsawa</span> */}
       </div>
       
       <div className="flex items-center ml-auto gap-4">
