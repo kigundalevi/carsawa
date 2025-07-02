@@ -52,18 +52,85 @@ const handleResponse = async (response: Response) => {
   }
 };
 
+// Helper function to validate coordinates
+const validateCoordinates = (latitude: number | string, longitude: number | string): boolean => {
+  const lat = parseFloat(latitude.toString());
+  const lng = parseFloat(longitude.toString());
+  
+  return !isNaN(lat) && !isNaN(lng) && 
+         lat >= -90 && lat <= 90 && 
+         lng >= -180 && lng <= 180;
+};
+
+// Helper function to create FormData for dealer registration/update
+export const createDealerFormData = (dealerData: {
+  name: string;
+  email: string;
+  password?: string;
+  phone: string;
+  whatsapp: string;
+  location: string; // Address string
+  latitude: number | string;
+  longitude: number | string;
+  profileImage?: File;
+}): FormData => {
+  // Validate coordinates before creating FormData
+  if (!validateCoordinates(dealerData.latitude, dealerData.longitude)) {
+    throw new Error('Invalid latitude or longitude coordinates');
+  }
+
+  const formData = new FormData();
+  
+  // Add text fields
+  formData.append('name', dealerData.name);
+  formData.append('email', dealerData.email);
+  if (dealerData.password) {
+    formData.append('password', dealerData.password);
+  }
+  formData.append('phone', dealerData.phone);
+  formData.append('whatsapp', dealerData.whatsapp);
+  formData.append('location', dealerData.location); // This is the address string
+  formData.append('latitude', dealerData.latitude.toString());
+  formData.append('longitude', dealerData.longitude.toString());
+  
+  // Add profile image if provided
+  if (dealerData.profileImage) {
+    formData.append('profileImage', dealerData.profileImage);
+  }
+  
+  return formData;
+};
+
 // Authentication API calls
 export const authAPI = {
   /**
-   * Register a new user
+   * Register a new dealer
    * @param dealerData Object containing dealer registration details
    */
-  register: async (formData: FormData) => {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      body: formData,
-    });
-    return handleResponse(response);
+  register: async (dealerData: {
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+    whatsapp: string;
+    location: string;
+    latitude: number | string;
+    longitude: number | string;
+    profileImage?: File;
+  }) => {
+    try {
+      const formData = createDealerFormData(dealerData);
+      
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header - let browser set it with boundary for FormData
+      });
+      
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
   },
 
   /**
@@ -105,13 +172,50 @@ export const authAPI = {
    * Update user profile
    * @param profileData Object containing profile information to update
    */
-  updateProfile: async (formData: FormData) => {
-    const response = await fetch(`${API_BASE_URL}/auth/update-profile`, {
-      method: 'PUT',
-      headers: getHeaders(),
-      body: formData,
-    });
-    return handleResponse(response);
+  updateProfile: async (profileData: {
+    name?: string;
+    email?: string;
+    password?: string;
+    phone?: string;
+    whatsapp?: string;
+    location?: string;
+    latitude?: number | string;
+    longitude?: number | string;
+    profileImage?: File;
+  }) => {
+    try {
+      // Validate coordinates if provided
+      if ((profileData.latitude !== undefined || profileData.longitude !== undefined)) {
+        const lat = profileData.latitude ?? 0;
+        const lng = profileData.longitude ?? 0;
+        if (!validateCoordinates(lat, lng)) {
+          throw new Error('Invalid latitude or longitude coordinates');
+        }
+      }
+
+      const formData = new FormData();
+      
+      // Add fields that are provided
+      if (profileData.name) formData.append('name', profileData.name);
+      if (profileData.email) formData.append('email', profileData.email);
+      if (profileData.password) formData.append('password', profileData.password);
+      if (profileData.phone) formData.append('phone', profileData.phone);
+      if (profileData.whatsapp) formData.append('whatsapp', profileData.whatsapp);
+      if (profileData.location) formData.append('location', profileData.location);
+      if (profileData.latitude !== undefined) formData.append('latitude', profileData.latitude.toString());
+      if (profileData.longitude !== undefined) formData.append('longitude', profileData.longitude.toString());
+      if (profileData.profileImage) formData.append('profileImage', profileData.profileImage);
+
+      const response = await fetch(`${API_BASE_URL}/auth/update-profile`, {
+        method: 'PUT',
+        headers: getHeaders(), // Don't set Content-Type for FormData
+        body: formData,
+      });
+      
+      return handleResponse(response);
+    } catch (error) {
+      throw error;
+    }
   },
 
   /**
@@ -129,6 +233,31 @@ export const authAPI = {
     });
     return handleResponse(response);
   },
+
+  /**
+   * Get nearby dealers
+   * @param location Object containing latitude, longitude, and optional radius
+   */
+  getNearbyDealers: async (location: {
+    latitude: number | string;
+    longitude: number | string;
+    radius?: number;
+  }) => {
+    if (!validateCoordinates(location.latitude, location.longitude)) {
+      throw new Error('Invalid coordinates provided');
+    }
+
+    const queryParams = new URLSearchParams({
+      latitude: location.latitude.toString(),
+      longitude: location.longitude.toString(),
+      ...(location.radius && { radius: location.radius.toString() })
+    });
+
+    const response = await fetch(`${API_BASE_URL}/auth/dealers/nearby?${queryParams.toString()}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(response);
+  },
 };
 
 // Car inventory API calls
@@ -138,7 +267,15 @@ export const carAPI = {
    * @param filters Object containing filter parameters
    */
   getAllCars: async (filters: Record<string, any> = {}) => {
-    const queryParams = new URLSearchParams(filters);
+    const queryParams = new URLSearchParams();
+    
+    // Handle filters properly
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value.toString());
+      }
+    });
+
     const response = await fetch(`${API_BASE_URL}/cars?${queryParams.toString()}`, {
       headers: getHeaders(),
     });
@@ -174,7 +311,7 @@ export const carAPI = {
   createCar: async (carData: FormData) => {
     const response = await fetch(`${API_BASE_URL}/cars/create`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(), // Don't set Content-Type for FormData
       body: carData,
     });
     return handleResponse(response);
@@ -188,7 +325,7 @@ export const carAPI = {
   updateCar: async (id: string, carData: FormData) => {
     const response = await fetch(`${API_BASE_URL}/cars/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getHeaders(), // Don't set Content-Type for FormData
       body: carData,
     });
     return handleResponse(response);
@@ -225,6 +362,87 @@ export const carAPI = {
     }
   },
 };
+
+// Location utilities
+export const locationAPI = {
+  /**
+   * Get current user's location using browser geolocation
+   */
+  getCurrentLocation: (): Promise<{ latitude: number; longitude: number }> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          reject(new Error(`Location error: ${error.message}`));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000, // 5 minutes
+        }
+      );
+    });
+  },
+
+  /**
+   * Validate coordinates
+   * @param latitude 
+   * @param longitude 
+   */
+  validateCoordinates: validateCoordinates,
+};
+
+// Type definitions for better TypeScript support
+export interface DealerRegistrationData {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  whatsapp: string;
+  location: string;
+  latitude: number | string;
+  longitude: number | string;
+  profileImage?: File;
+}
+
+export interface DealerUpdateData {
+  name?: string;
+  email?: string;
+  password?: string;
+  phone?: string;
+  whatsapp?: string;
+  location?: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  profileImage?: File;
+}
+
+export interface LocationData {
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface DealerProfile {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  location: LocationData;
+  profileImage?: string;
+  token?: string;
+}
 
 // Transactions API calls
 // export const transactionAPI = {
