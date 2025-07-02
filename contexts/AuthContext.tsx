@@ -74,7 +74,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { token, ...userData } = response; // Assuming API returns { token, ...userFields }
       setUser(userData);
       localStorage.setItem('token', token);
-      console.log('token is :', token);
       localStorage.setItem('currentUser', JSON.stringify(userData));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login');
