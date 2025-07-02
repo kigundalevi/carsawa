@@ -5,13 +5,22 @@ import { Mail, MapPin, Phone, Save, Camera, X } from 'lucide-react';
 import { authAPI } from '@/services/api';
 import { FaWhatsapp } from "react-icons/fa";
 
+interface LocationData {
+  address: string;
+  coordinates?: [number, number];
+  latitude?: number;
+  longitude?: number;
+}
+
 interface DealerProfile {
   name: string;
   email: string;
   phone: string;
   whatsapp: string;
-  location: string;
+  location: string | LocationData;
   profileImage: string;
+  latitude?: number | string;
+  longitude?: number | string;
 }
 
 export default function ProfilePage() {
@@ -93,17 +102,23 @@ export default function ProfilePage() {
     setError(null);
 
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('email', formData.email);
-      formDataToSend.append('phone', formData.phone);
-      formDataToSend.append('whatsapp', formData.whatsapp);
-      formDataToSend.append('location', formData.location);
-      if (selectedImage) {
-        formDataToSend.append('profileImage', selectedImage);
-      }
+      // Prepare location data for the API
+      const locationData = typeof formData.location === 'string' 
+        ? formData.location 
+        : formData.location.address;
 
-      const updatedProfile = await authAPI.updateProfile(formDataToSend);
+      const profileUpdates = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        whatsapp: formData.whatsapp,
+        location: locationData,
+        latitude: typeof formData.location === 'object' ? formData.location.latitude : undefined,
+        longitude: typeof formData.location === 'object' ? formData.location.longitude : undefined,
+        profileImage: selectedImage || undefined
+      };
+
+      const updatedProfile = await authAPI.updateProfile(profileUpdates);
       setProfile(updatedProfile);
       setFormData(updatedProfile);
       setSelectedImage(null);
@@ -215,7 +230,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
                     <MapPin className="w-4 h-4" />
-                    <span>{profile.location}</span>
+                    <span>{typeof profile.location === 'string' ? profile.location : profile.location.address}</span>
                   </div>
                 </div>
               </>
@@ -307,9 +322,17 @@ export default function ProfilePage() {
                 <input
                   type="text"
                   name="location"
-                  value={formData.location}
-                  onChange={handleChange}
+                  value={typeof formData.location === 'string' ? formData.location : formData.location?.address || ''}
+                  onChange={(e) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      location: typeof prev.location === 'string' 
+                        ? e.target.value 
+                        : { ...prev.location as LocationData, address: e.target.value }
+                    }));
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Enter your location"
                 />
               </div>
             </div>

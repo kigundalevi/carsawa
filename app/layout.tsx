@@ -11,6 +11,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Carsawa",
   description: "Your car marketplace",
+  icons: {
+    icon: '/icons/carsawaicon.png',
+  },
 };
 
 export default function RootLayout({
