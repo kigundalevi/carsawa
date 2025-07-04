@@ -328,6 +328,7 @@ export default function ProfilePage() {
                 <input
                   type="text"
                   name="location"
+                  readOnly
                   value={typeof formData.location === 'string' ? formData.location : formData.location?.address || ''}
                   onChange={(e) => {
                     setFormData(prev => ({

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState, FormEvent, ChangeEvent, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, Loader, UserPlus, X, MapPin, Navigation } from 'lucide-react';
+import { Camera, Loader, UserPlus, X, MapPin, Navigation, ExternalLink, Map } from 'lucide-react';
 
 import Link from 'next/link';
 import { authAPI } from '@/services/api';
@@ -13,6 +13,13 @@ interface LocationData {
   longitude: number;
 }
 
+declare global {
+  interface Window {
+    google: any;
+    initMap: () => void;
+  }
+}
+
 /**
  * Register Page Component
  * 
@@ -20,6 +27,11 @@ interface LocationData {
  */
 export default function Register() {
   const router = useRouter();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+  const markerInstance = useRef<any>(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [showMapSelection, setShowMapSelection] = useState(false);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,7 +49,125 @@ export default function Register() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showLocationOptions, setShowLocationOptions] = useState(false);
+
+  // Load Google Maps API
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.google) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAQpVc3S0pdnthbAos4CNDbXh-zutsW7hw&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        setIsMapLoaded(true);
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load Google Maps API');
+        setErrorMessage('Failed to load map. Please try refreshing the page.');
+      };
+      
+      document.head.appendChild(script);
+    } else if (window.google) {
+      setIsMapLoaded(true);
+    }
+  }, []);
+
+  // Initialize map when map selection is shown
+  useEffect(() => {
+    if (showMapSelection && isMapLoaded && mapRef.current && !mapInstance.current) {
+      initializeMap();
+    }
+  }, [showMapSelection, isMapLoaded]);
+
+  const initializeMap = () => {
+    if (!window.google || !mapRef.current) return;
+
+    // Default location (Nairobi, Kenya)
+    const defaultLocation = { lat: -1.286389, lng: 36.817223 };
+    
+    // Create map
+    mapInstance.current = new window.google.maps.Map(mapRef.current, {
+      center: defaultLocation,
+      zoom: 12,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+
+    // Create marker
+    markerInstance.current = new window.google.maps.Marker({
+      position: defaultLocation,
+      map: mapInstance.current,
+      draggable: true,
+      title: 'Your Business Location'
+    });
+
+    // Handle marker drag
+    markerInstance.current.addListener('dragend', (event: any) => {
+      const position = event.latLng;
+      updateLocationFromCoords(position.lat(), position.lng());
+    });
+
+    // Handle map click
+    mapInstance.current.addListener('click', (event: any) => {
+      const position = event.latLng;
+      markerInstance.current.setPosition(position);
+      updateLocationFromCoords(position.lat(), position.lng());
+    });
+
+    // Add places autocomplete
+    const searchBox = document.getElementById('mapSearch') as HTMLInputElement;
+    if (searchBox) {
+      const autocomplete = new window.google.maps.places.Autocomplete(searchBox);
+      autocomplete.bindTo('bounds', mapInstance.current);
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place.geometry) {
+          const location = place.geometry.location;
+          mapInstance.current.setCenter(location);
+          mapInstance.current.setZoom(15);
+          markerInstance.current.setPosition(location);
+          
+          setLocationData({
+            address: place.formatted_address || place.name || '',
+            latitude: location.lat(),
+            longitude: location.lng()
+          });
+        }
+      });
+    }
+  };
+
+  const updateLocationFromCoords = async (lat: number, lng: number) => {
+    try {
+      // Use Google's Geocoding service to get address
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ location: { lat, lng } }, (results: any[], status: string) => {
+        if (status === 'OK' && results[0]) {
+          setLocationData({
+            address: results[0].formatted_address,
+            latitude: lat,
+            longitude: lng
+          });
+        } else {
+          setLocationData({
+            address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            latitude: lat,
+            longitude: lng
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error getting address:', error);
+      setLocationData({
+        address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        latitude: lat,
+        longitude: lng
+      });
+    }
+  };
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -85,42 +215,26 @@ export default function Register() {
       async (position) => {
         const { latitude, longitude } = position.coords;
         
-        try {
-          // Reverse geocoding to get address from coordinates
-          const response = await fetch(
-            `https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=YOUR_OPENCAGE_API_KEY`
-          );
-          const data = await response.json();
-          
-          if (data.results && data.results.length > 0) {
-            const address = data.results[0].formatted;
-            setLocationData({
-              address,
-              latitude,
-              longitude
-            });
-          } else {
-            setLocationData({
-              address: `${latitude}, ${longitude}`,
-              latitude,
-              longitude
-            });
-          }
-        } catch (error) {
-          console.error('Error getting address:', error);
-          setLocationData({
-            address: `${latitude}, ${longitude}`,
-            latitude,
-            longitude
-          });
+        setLocationData({
+          address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+          latitude,
+          longitude
+        });
+
+        // If map is loaded, update map position
+        if (mapInstance.current && markerInstance.current) {
+          const newPosition = { lat: latitude, lng: longitude };
+          mapInstance.current.setCenter(newPosition);
+          mapInstance.current.setZoom(15);
+          markerInstance.current.setPosition(newPosition);
+          updateLocationFromCoords(latitude, longitude);
         }
         
         setIsGettingLocation(false);
-        setShowLocationOptions(false);
       },
       (error) => {
         console.error('Error getting location:', error);
-        setErrorMessage('Unable to get your current location. Please enter manually.');
+        setErrorMessage('Unable to get your current location. Please select on the map.');
         setIsGettingLocation(false);
       },
       {
@@ -129,26 +243,6 @@ export default function Register() {
         maximumAge: 60000
       }
     );
-  };
-
-  const handleManualLocationInput = (address: string) => {
-    setLocationData(prev => ({
-      ...prev,
-      address
-    }));
-  };
-
-  const handleCoordinatesInput = (lat: string, lng: string) => {
-    const latitude = parseFloat(lat);
-    const longitude = parseFloat(lng);
-    
-    if (!isNaN(latitude) && !isNaN(longitude)) {
-      setLocationData({
-        address: `${latitude}, ${longitude}`,
-        latitude,
-        longitude
-      });
-    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -313,13 +407,13 @@ export default function Register() {
                 />
               </div>
               
-              {/* Enhanced Location Section */}
+              {/* Enhanced Location Section with Embedded Map */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-secondary mb-2">
                   Business Location
                 </label>
                 
-                {!showLocationOptions && !locationData.address && (
+                {!showMapSelection && !locationData.address && (
                   <div className="space-y-3">
                     <button
                       type="button"
@@ -342,61 +436,66 @@ export default function Register() {
                     
                     <button
                       type="button"
-                      onClick={() => setShowLocationOptions(true)}
-                      className="w-full flex justify-center items-center py-2 px-4 border border-neutral-300 text-secondary hover:bg-neutral-50 rounded-md transition-colors"
+                      onClick={() => setShowMapSelection(true)}
+                      disabled={!isMapLoaded}
+                      className="w-full flex justify-center items-center py-2 px-4 border border-neutral-300 text-secondary hover:bg-neutral-50 rounded-md transition-colors disabled:opacity-50"
                     >
-                      <MapPin className="w-4 h-4 mr-2" />
-                      Enter Manually
+                      <Map className="w-4 h-4 mr-2" />
+                      {isMapLoaded ? 'Select on Map' : 'Loading Map...'}
                     </button>
                   </div>
                 )}
 
-                {showLocationOptions && (
-                  <div className="space-y-4 p-4 border border-neutral-200 rounded-md bg-neutral-50">
+                {/* Map Selection Interface */}
+                {showMapSelection && (
+                  <div className="space-y-4 p-4 border border-neutral-200 rounded-md bg-white">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-secondary">Select Your Business Location</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowMapSelection(false)}
+                        className="text-secondary-light hover:text-secondary"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    {/* Search Box */}
                     <div>
-                      <label className="block text-sm font-medium text-secondary mb-2">
-                        Address
-                      </label>
                       <input
+                        id="mapSearch"
                         type="text"
-                        placeholder="Enter your business address"
-                        value={locationData.address}
-                        onChange={(e) => handleManualLocationInput(e.target.value)}
+                        placeholder="Search for your business address..."
                         className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
                       />
+                      <p className="text-xs text-secondary-light mt-1">
+                        Search for an address or click/drag the marker on the map
+                      </p>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-secondary mb-1">
-                          Latitude
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="e.g., -1.286389"
-                          onChange={(e) => handleCoordinatesInput(e.target.value, locationData.longitude.toString())}
-                          className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-secondary mb-1">
-                          Longitude
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          placeholder="e.g., 36.817223"
-                          onChange={(e) => handleCoordinatesInput(locationData.latitude.toString(), e.target.value)}
-                          className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-                        />
-                      </div>
-                    </div>
+                    {/* Map Container */}
+                    <div 
+                      ref={mapRef}
+                      className="w-full h-64 border border-neutral-300 rounded-md"
+                      style={{ minHeight: '256px' }}
+                    />
                     
+                    {/* Current Selection Display */}
+                    {locationData.address && (
+                      <div className="p-3 bg-success/10 border border-success/20 rounded-md">
+                        <p className="text-sm font-medium text-success">Selected Location:</p>
+                        <p className="text-xs text-secondary mt-1">{locationData.address}</p>
+                        <p className="text-xs text-secondary-light">
+                          {locationData.latitude.toFixed(6)}, {locationData.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Action Buttons */}
                     <div className="flex space-x-3">
                       <button
                         type="button"
-                        onClick={() => setShowLocationOptions(false)}
+                        onClick={() => setShowMapSelection(false)}
                         className="flex-1 py-2 px-4 border border-neutral-300 text-secondary rounded-md hover:bg-neutral-100 transition-colors"
                       >
                         Cancel
@@ -405,15 +504,24 @@ export default function Register() {
                         type="button"
                         onClick={getCurrentLocation}
                         disabled={isGettingLocation}
-                        className="flex-1 py-2 px-4 bg-primary text-black rounded-md hover:bg-primary-hover transition-colors"
+                        className="flex-1 py-2 px-4 border border-primary text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
                       >
-                        Use GPS
+                        {isGettingLocation ? 'Getting...' : 'Use GPS'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowMapSelection(false)}
+                        disabled={!locationData.address}
+                        className="flex-1 py-2 px-4 bg-primary text-black rounded-md hover:bg-primary-hover transition-colors disabled:opacity-50"
+                      >
+                        Confirm Location
                       </button>
                     </div>
                   </div>
                 )}
 
-                {locationData.address && (
+                {/* Location Confirmation */}
+                {locationData.address && !showMapSelection && (
                   <div className="mt-3 p-3 bg-success/10 border border-success/20 rounded-md">
                     <div className="flex items-center justify-between">
                       <div>
@@ -429,7 +537,7 @@ export default function Register() {
                         type="button"
                         onClick={() => {
                           setLocationData({ address: '', latitude: 0, longitude: 0 });
-                          setShowLocationOptions(false);
+                          setShowMapSelection(false);
                         }}
                         className="text-secondary-light hover:text-secondary"
                       >
