@@ -5,7 +5,8 @@
  * It provides methods for authentication, car management, and other operations.
  */
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'https://carsawa-backend-6zf3.onrender.com/api';
+;
 
 // Helper function to get auth headers
 const getHeaders = (contentType?: string) => {
