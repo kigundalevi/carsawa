@@ -36,11 +36,7 @@ function EditCarForm() {
   // Get the ID from query parameters instead of dynamic route
   const id = searchParams.get('id');
   
-  // DEBUG: Log the component load and ID
-  console.log('EditCarPage component loaded');
-  console.log('Search params:', searchParams.toString());
-  console.log('ID from search params:', id);
-  console.log('Type of ID:', typeof id);
+
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -233,7 +229,6 @@ function EditCarForm() {
             : 'The car listing you\'re looking for doesn\'t exist or has been removed.'
           }
         </p>
-        <p className="text-sm text-gray-500 mb-6">DEBUG: Tried to load car with ID: {id || 'null'}</p>
         <button
           onClick={() => router.push('/inventory')}
           className="bg-primary hover:bg-primary-hover text-black px-4 py-2 rounded-lg transition-colors"
