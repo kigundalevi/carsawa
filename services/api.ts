@@ -6,7 +6,7 @@
  */
 
 const API_BASE_URL = "https://api.carsawa.africa/api";
-;
+
 
 // Helper function to get auth headers
 const getHeaders = (contentType?: string) => {
