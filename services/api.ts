@@ -5,7 +5,7 @@
  * It provides methods for authentication, car management, and other operations.
  */
 
-const API_BASE_URL = 'https://api.carsawa.africa/api';
+const API_BASE_URL = "https://api.carsawa.africa/api";
 ;
 
 // Helper function to get auth headers

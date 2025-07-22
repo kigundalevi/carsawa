@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Edit, Trash, Check, X, Car, Loader, AlertCircle } from 'lucide-react';
 import { carAPI } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface CarListing {
   _id: string;
@@ -25,6 +26,7 @@ interface CarListing {
 
 export default function InventoryPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [inventory, setInventory] = useState<CarListing[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -86,6 +88,10 @@ export default function InventoryPage() {
         setError(`Failed to delete car: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
+  };
+    
+  const handleEdit = (carId: string) => {
+    router.push(`/edit-car/${carId}`);
   };
 
   const filteredInventory = filterStatus === 'all'
@@ -249,13 +255,13 @@ export default function InventoryPage() {
                             <Car className="w-5 h-5" />
                           </button>
                         )}
-                         <Link
-                          href={`/edit-car/${car._id}`}
+                         <button
+                          onClick={() => handleEdit(car._id)}
                           className="p-1 hover:bg-blue-100 hover:text-blue-800 rounded"
                           title="Edit Listing"
                         >
                           <Edit className="w-5 h-5" />
-                        </Link>
+                        </button>
                         <button
                           onClick={() => deleteCar(car._id)}
                           className="p-1 hover:bg-red-100 hover:text-red-800 rounded"
