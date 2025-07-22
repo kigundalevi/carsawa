@@ -121,7 +121,7 @@ export const authAPI = {
   }) => {
     try {
       const formData = createDealerFormData(dealerData);
-      
+      console.log('Form Data:', formData);
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         body: formData,
