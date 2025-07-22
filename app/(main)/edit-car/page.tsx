@@ -214,7 +214,6 @@ function EditCarForm() {
           <Loader className="w-8 h-8 animate-spin mr-2" />
           <h1 className="text-2xl font-bold">Loading Car Details...</h1>
         </div>
-        <p className="text-sm text-gray-500">DEBUG: Loading car with ID: {id}</p>
       </div>
     );
   }
@@ -246,7 +245,6 @@ function EditCarForm() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-2xl font-bold">Edit Car Listing</h1>
-        <span className="ml-4 text-sm text-gray-500">DEBUG: ID: {id}</span>
       </div>
       {error && (
         <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
