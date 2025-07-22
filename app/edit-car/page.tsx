@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import { useState, useEffect, FormEvent, ChangeEvent, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Camera, Loader, ArrowLeft, X } from 'lucide-react';
 import { carAPI } from '@/services/api';
@@ -28,7 +28,8 @@ interface ImageData {
   isNew?: boolean;
 }
 
-export default function EditCarPage() {
+// Create a separate component for the edit form that uses useSearchParams
+function EditCarForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -298,5 +299,26 @@ export default function EditCarPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function EditCarPageLoading() {
+  return (
+    <div className="p-6 max-w-4xl mx-auto text-center">
+      <div className="flex items-center justify-center mb-4">
+        <Loader className="w-8 h-8 animate-spin mr-2" />
+        <h1 className="text-2xl font-bold">Loading...</h1>
+      </div>
+    </div>
+  );
+}
+
+// Main component wrapped with Suspense
+export default function EditCarPage() {
+  return (
+    <Suspense fallback={<EditCarPageLoading />}>
+      <EditCarForm />
+    </Suspense>
   );
 }
