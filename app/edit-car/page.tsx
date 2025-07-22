@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Camera, Loader, ArrowLeft, X } from 'lucide-react';
 import { carAPI } from '@/services/api';
 
@@ -29,14 +29,16 @@ interface ImageData {
 }
 
 export default function EditCarPage() {
-  const params = useParams();
-  const id = params.id as string;
+  const searchParams = useSearchParams();
   const router = useRouter();
+  
+  // Get the ID from query parameters instead of dynamic route
+  const id = searchParams.get('id');
   
   // DEBUG: Log the component load and ID
   console.log('EditCarPage component loaded');
-  console.log('Params:', params);
-  console.log('ID from params:', id);
+  console.log('Search params:', searchParams.toString());
+  console.log('ID from search params:', id);
   console.log('Type of ID:', typeof id);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,9 +67,12 @@ export default function EditCarPage() {
     const fetchCarData = async () => {
       console.log('fetchCarData called with ID:', id);
       if (!id) {
-        console.log('No ID provided, returning early');
+        console.log('No ID provided in query params');
+        setNotFound(true);
+        setIsLoading(false);
         return;
       }
+      
       setIsLoading(true);
       try {
         console.log('Calling carAPI.getCarById with ID:', id);
@@ -113,6 +118,7 @@ export default function EditCarPage() {
         setIsLoading(false);
       }
     };
+    
     fetchCarData();
   }, [id]);
 
@@ -160,6 +166,11 @@ export default function EditCarPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!id) {
+      setError('No car ID provided');
+      return;
+    }
+    
     if (images.length === 0) {
       setError('Please add at least one image of the car');
       return;
@@ -186,7 +197,7 @@ export default function EditCarPage() {
         formDataToSend.append('imagesToDelete', JSON.stringify(imagesToDelete));
       }
 
-      await carAPI.updateCar(id!, formDataToSend);
+      await carAPI.updateCar(id, formDataToSend);
       router.push('/inventory');
     } catch (err) {
       console.error('Error updating car:', err);
@@ -211,12 +222,17 @@ export default function EditCarPage() {
     );
   }
 
-  if (notFound) {
+  if (notFound || !id) {
     return (
       <div className="p-6 max-w-4xl mx-auto text-center">
         <h1 className="text-2xl font-bold mb-4">Car Not Found</h1>
-        <p className="mb-6">The car listing you're looking for doesn't exist or has been removed.</p>
-        <p className="text-sm text-gray-500 mb-6">DEBUG: Tried to load car with ID: {id}</p>
+        <p className="mb-6">
+          {!id 
+            ? 'No car ID was provided in the URL.' 
+            : 'The car listing you\'re looking for doesn\'t exist or has been removed.'
+          }
+        </p>
+        <p className="text-sm text-gray-500 mb-6">DEBUG: Tried to load car with ID: {id || 'null'}</p>
         <button
           onClick={() => router.push('/inventory')}
           className="bg-primary hover:bg-primary-hover text-black px-4 py-2 rounded-lg transition-colors"

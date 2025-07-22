@@ -91,9 +91,9 @@ export default function InventoryPage() {
   };
     
   const handleEdit = (carId: string) => {
-    router.push(`/edit-car/${carId}`);
+    router.push(`/edit-car?id=${carId}`);
   };
-
+  
   const filteredInventory = filterStatus === 'all'
     ? inventory
     : inventory.filter(car => car.status === filterStatus);
