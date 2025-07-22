@@ -249,7 +249,7 @@ export default function InventoryPage() {
                             <Car className="w-5 h-5" />
                           </button>
                         )}
-                        <Link
+                         <Link
                           href={`/edit-car/${car._id}`}
                           className="p-1 hover:bg-blue-100 hover:text-blue-800 rounded"
                           title="Edit Listing"
