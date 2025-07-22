@@ -32,6 +32,13 @@ export default function EditCarPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
+  
+  // DEBUG: Log the component load and ID
+  console.log('EditCarPage component loaded');
+  console.log('Params:', params);
+  console.log('ID from params:', id);
+  console.log('Type of ID:', typeof id);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<CarFormData>({
@@ -56,10 +63,17 @@ export default function EditCarPage() {
 
   useEffect(() => {
     const fetchCarData = async () => {
-      if (!id) return;
+      console.log('fetchCarData called with ID:', id);
+      if (!id) {
+        console.log('No ID provided, returning early');
+        return;
+      }
       setIsLoading(true);
       try {
+        console.log('Calling carAPI.getCarById with ID:', id);
         const car = await carAPI.getCarById(id);
+        console.log('Car data received:', car);
+        
         setFormData({
           name: car.name || '',
           make: car.make || '',
@@ -89,6 +103,10 @@ export default function EditCarPage() {
         }
       } catch (err) {
         console.error('Error fetching car:', err);
+        console.log('Error details:', {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          stack: err instanceof Error ? err.stack : undefined
+        });
         setNotFound(true);
         setError(err instanceof Error ? err.message : 'Failed to load car details');
       } finally {
@@ -178,6 +196,9 @@ export default function EditCarPage() {
     }
   };
 
+  // DEBUG: Log current state
+  console.log('Current state:', { isLoading, notFound, error, id });
+
   if (isLoading) {
     return (
       <div className="p-6 max-w-4xl mx-auto text-center">
@@ -185,6 +206,7 @@ export default function EditCarPage() {
           <Loader className="w-8 h-8 animate-spin mr-2" />
           <h1 className="text-2xl font-bold">Loading Car Details...</h1>
         </div>
+        <p className="text-sm text-gray-500">DEBUG: Loading car with ID: {id}</p>
       </div>
     );
   }
@@ -194,6 +216,7 @@ export default function EditCarPage() {
       <div className="p-6 max-w-4xl mx-auto text-center">
         <h1 className="text-2xl font-bold mb-4">Car Not Found</h1>
         <p className="mb-6">The car listing you're looking for doesn't exist or has been removed.</p>
+        <p className="text-sm text-gray-500 mb-6">DEBUG: Tried to load car with ID: {id}</p>
         <button
           onClick={() => router.push('/inventory')}
           className="bg-primary hover:bg-primary-hover text-black px-4 py-2 rounded-lg transition-colors"
@@ -211,6 +234,7 @@ export default function EditCarPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-2xl font-bold">Edit Car Listing</h1>
+        <span className="ml-4 text-sm text-gray-500">DEBUG: ID: {id}</span>
       </div>
       {error && (
         <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
