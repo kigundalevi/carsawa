@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, ChangeEvent, KeyboardEvent } from 'react';
-import { Camera, Loader, X } from 'lucide-react';
+import { Camera, Loader, X, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { carAPI } from '@/services/api';
 
@@ -50,6 +50,19 @@ export default function ListCarPage() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Predefined feature options for quick selection
+  const commonSafetyFeatures = [
+    'ABS', 'Airbags', 'Electronic Stability Control', 'Traction Control',
+    'Blind Spot Monitoring', 'Lane Departure Warning', 'Parking Sensors',
+    'Backup Camera', 'Anti-theft System', 'Central Locking'
+  ];
+
+  const commonComfortFeatures = [
+    'Air Conditioning', 'Power Steering', 'Power Windows', 'Leather Seats',
+    'Heated Seats', 'Sunroof', 'Navigation System', 'Bluetooth',
+    'USB Ports', 'Premium Sound System', 'Cruise Control', 'Keyless Entry'
+  ];
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -58,22 +71,70 @@ export default function ListCarPage() {
     }));
   };
 
-  const handleFeatureKeyDown = (e: KeyboardEvent<HTMLInputElement>, type: 'safety' | 'comfort') => {
-    const inputValue = (type === 'safety' ? safetyFeatureInput : comfortFeatureInput).trim();
-    const features = type === 'safety' ? formData.safetyFeatures : formData.comfortFeatures;
-    const setFeatures = (newFeatures: string[]) =>
-      setFormData(prev => ({ ...prev, [type === 'safety' ? 'safetyFeatures' : 'comfortFeatures']: newFeatures }));
+  // Enhanced feature adding function that handles multiple separators
+  const addFeature = (feature: string, type: 'safety' | 'comfort') => {
+    const trimmedFeature = feature.trim();
+    if (!trimmedFeature) return;
 
-    if ((e.key === 'Enter' || e.key === ',') && inputValue) {
-      e.preventDefault();
-      if (!features.includes(inputValue)) {
-        setFeatures([...features, inputValue]);
-      }
-      type === 'safety' ? setSafetyFeatureInput('') : setComfortFeatureInput('');
+    const currentFeatures = type === 'safety' ? formData.safetyFeatures : formData.comfortFeatures;
+    
+    // Split by common separators and clean up
+    const newFeatures = trimmedFeature
+      .split(/[,;|\n]+/)
+      .map(f => f.trim())
+      .filter(f => f && !currentFeatures.includes(f));
+
+    if (newFeatures.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        [type === 'safety' ? 'safetyFeatures' : 'comfortFeatures']: [...currentFeatures, ...newFeatures]
+      }));
     }
 
-    if (e.key === 'Backspace' && inputValue === '' && features.length > 0) {
-      setFeatures(features.slice(0, -1));
+    // Clear input
+    if (type === 'safety') {
+      setSafetyFeatureInput('');
+    } else {
+      setComfortFeatureInput('');
+    }
+  };
+
+  const handleFeatureKeyDown = (e: KeyboardEvent<HTMLInputElement>, type: 'safety' | 'comfort') => {
+    const inputValue = type === 'safety' ? safetyFeatureInput : comfortFeatureInput;
+    const features = type === 'safety' ? formData.safetyFeatures : formData.comfortFeatures;
+
+    // Handle Enter, comma, semicolon, or pipe as separators
+    if (['Enter', ',', ';', '|'].includes(e.key)) {
+      e.preventDefault();
+      addFeature(inputValue, type);
+    }
+
+    // Handle backspace to remove last feature when input is empty
+    if (e.key === 'Backspace' && inputValue.trim() === '' && features.length > 0) {
+      e.preventDefault();
+      setFormData(prev => ({
+        ...prev,
+        [type === 'safety' ? 'safetyFeatures' : 'comfortFeatures']: features.slice(0, -1)
+      }));
+    }
+  };
+
+  // Handle input blur to add feature when user clicks away
+  const handleFeatureBlur = (type: 'safety' | 'comfort') => {
+    const inputValue = type === 'safety' ? safetyFeatureInput : comfortFeatureInput;
+    if (inputValue.trim()) {
+      addFeature(inputValue, type);
+    }
+  };
+
+  // Add feature from predefined list
+  const addPredefinedFeature = (feature: string, type: 'safety' | 'comfort') => {
+    const currentFeatures = type === 'safety' ? formData.safetyFeatures : formData.comfortFeatures;
+    if (!currentFeatures.includes(feature)) {
+      setFormData(prev => ({
+        ...prev,
+        [type === 'safety' ? 'safetyFeatures' : 'comfortFeatures']: [...currentFeatures, feature]
+      }));
     }
   };
 
@@ -219,7 +280,6 @@ export default function ListCarPage() {
               placeholder="e.g. 4500000"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
-              min="0"
             />
           </div>
 
@@ -233,7 +293,6 @@ export default function ListCarPage() {
               placeholder="e.g. 45000"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
-              min="0"
             />
           </div>
 
@@ -348,119 +407,205 @@ export default function ListCarPage() {
           </div>
         </div>
 
-        {/* Safety Features Input */}
+        {/* Enhanced Safety Features Input */}
         <div>
           <label className="block text-sm font-medium mb-2">Safety Features</label>
-          <div className="relative">
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg flex flex-wrap items-center gap-2 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
-              {formData.safetyFeatures.map(feature => (
-                <span key={feature} className="flex items-center bg-primary text-sm px-2 py-1 rounded-full">
-                  {feature}
-                  <button
-                    type="button"
-                    onClick={() => removeFeature(feature, 'safety')}
-                    className="ml-1 text-gray-500 hover:text-red-500"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-              <input
-                type="text"
-                value={safetyFeatureInput}
-                onChange={e => setSafetyFeatureInput(e.target.value)}
-                onKeyDown={e => handleFeatureKeyDown(e, 'safety')}
-                placeholder={formData.safetyFeatures.length === 0 ? 'Add safety features (Press Enter to add)' : ''}
-                className="flex-grow outline-none bg-transparent ml-1"
-              />
+          
+          {/* Custom Input with Add Button */}
+          <div className="mb-3">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg flex flex-wrap items-center gap-2 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent min-h-[42px]">
+                  {formData.safetyFeatures.map(feature => (
+                    <span key={feature} className="flex items-center bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded-full">
+                      {feature}
+                      <button
+                        type="button"
+                        onClick={() => removeFeature(feature, 'safety')}
+                        className="ml-1 text-blue-600 hover:text-red-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={safetyFeatureInput}
+                    onChange={e => setSafetyFeatureInput(e.target.value)}
+                    onKeyDown={e => handleFeatureKeyDown(e, 'safety')}
+                    onBlur={() => handleFeatureBlur('safety')}
+                    placeholder={formData.safetyFeatures.length === 0 ? 'Type safety feature...' : ''}
+                    className="flex-grow outline-none bg-transparent min-w-[120px]"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => addFeature(safetyFeatureInput, 'safety')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+                disabled={!safetyFeatureInput.trim()}
+              >
+                <Plus className="w-4 h-4" />
+                Add
+              </button>
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-500">Add safety features by typing and pressing Enter or comma.</p>
+
+          {/* Quick Select Options */}
+          <div className="mb-3">
+            <p className="text-xs text-gray-500 mb-2">Quick select common features:</p>
+            <div className="flex flex-wrap gap-2">
+              {commonSafetyFeatures
+                .filter(feature => !formData.safetyFeatures.includes(feature))
+                .map(feature => (
+                  <button
+                    key={feature}
+                    type="button"
+                    onClick={() => addPredefinedFeature(feature, 'safety')}
+                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
+                  >
+                    + {feature}
+                  </button>
+                ))
+              }
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-500">
+            Type features and click "Add" button, or use quick select options above. You can also separate multiple features with commas.
+          </p>
         </div>
 
-        {/* Comfort Features Input */}
+        {/* Enhanced Comfort Features Input */}
         <div>
           <label className="block text-sm font-medium mb-2">Comfort Features</label>
-          <div className="relative">
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg flex flex-wrap items-center gap-2 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
-              {formData.comfortFeatures.map(feature => (
-                <span key={feature} className="flex items-center bg-primary text-sm px-2 py-1 rounded-full">
-                  {feature}
-                  <button
-                    type="button"
-                    onClick={() => removeFeature(feature, 'comfort')}
-                    className="ml-1 text-gray-500 hover:text-red-500"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-              <input
-                type="text"
-                value={comfortFeatureInput}
-                onChange={e => setComfortFeatureInput(e.target.value)}
-                onKeyDown={e => handleFeatureKeyDown(e, 'comfort')}
-                placeholder={formData.comfortFeatures.length === 0 ? 'Add comfort features (Press Enter to add)' : ''}
-                className="flex-grow outline-none bg-transparent ml-1"
-              />
+          
+          {/* Custom Input with Add Button */}
+          <div className="mb-3">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg flex flex-wrap items-center gap-2 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent min-h-[42px]">
+                  {formData.comfortFeatures.map(feature => (
+                    <span key={feature} className="flex items-center bg-green-100 text-green-800 text-sm px-2 py-1 rounded-full">
+                      {feature}
+                      <button
+                        type="button"
+                        onClick={() => removeFeature(feature, 'comfort')}
+                        className="ml-1 text-green-600 hover:text-red-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={comfortFeatureInput}
+                    onChange={e => setComfortFeatureInput(e.target.value)}
+                    onKeyDown={e => handleFeatureKeyDown(e, 'comfort')}
+                    onBlur={() => handleFeatureBlur('comfort')}
+                    placeholder={formData.comfortFeatures.length === 0 ? 'Type comfort feature...' : ''}
+                    className="flex-grow outline-none bg-transparent min-w-[120px]"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => addFeature(comfortFeatureInput, 'comfort')}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                disabled={!comfortFeatureInput.trim()}
+              >
+                <Plus className="w-4 h-4" />
+                Add
+              </button>
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-500">Add comfort features by typing and pressing Enter or comma.</p>
+
+          {/* Quick Select Options */}
+          <div className="mb-3">
+            <p className="text-xs text-gray-500 mb-2">Quick select common features:</p>
+            <div className="flex flex-wrap gap-2">
+              {commonComfortFeatures
+                .filter(feature => !formData.comfortFeatures.includes(feature))
+                .map(feature => (
+                  <button
+                    key={feature}
+                    type="button"
+                    onClick={() => addPredefinedFeature(feature, 'comfort')}
+                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
+                  >
+                    + {feature}
+                  </button>
+                ))
+              }
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-500">
+            Type features and click "Add" button, or use quick select options above. You can also separate multiple features with commas.
+          </p>
         </div>
 
-        {/* Image Upload Section */}
+        {/* Images Section */}
         <div>
-          <label className="block text-sm font-medium mb-2">Images</label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {previewUrls.map((url, index) => (
-              <div key={index} className="relative aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
-                <img src={url} alt={`Car preview ${index + 1}`} className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removeImage(index)}
-                  className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-            <label className="aspect-[4/3] flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-primary transition-colors cursor-pointer">
-              <Camera className="w-8 h-8 text-gray-500" />
-              <span className="mt-2 text-sm text-gray-500">Add Image</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                className="hidden"
-                multiple
-              />
+          <label className="block text-sm font-medium mb-2">Car Images</label>
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+              id="image-upload"
+            />
+            <label htmlFor="image-upload" className="cursor-pointer">
+              <Camera className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-gray-600">Click to upload images</p>
+              <p className="text-sm text-gray-500">Maximum 10 images, 5MB each</p>
             </label>
           </div>
-          <p className="mt-2 text-xs text-gray-500">Upload up to 10 images. Max 5MB per image. Supported formats: JPEG, PNG, GIF.</p>
+          
+          {previewUrls.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+              {previewUrls.map((url, index) => (
+                <div key={index} className="relative">
+                  <img
+                    src={url}
+                    alt={`Preview ${index + 1}`}
+                    className="w-full h-24 object-cover rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+          <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
           </div>
         )}
 
-        <div className="pt-4">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-primary hover:bg-primary-hover text-black font-medium py-3 rounded-lg transition-colors flex items-center justify-center"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader className="w-5 h-5 mr-2 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              'List Car'
-            )}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader className="animate-spin w-5 h-5" />
+              Listing Car...
+            </>
+          ) : (
+            'List Car'
+          )}
+        </button>
       </form>
     </div>
   );

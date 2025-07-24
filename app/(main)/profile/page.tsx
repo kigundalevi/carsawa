@@ -7,9 +7,12 @@ import { FaWhatsapp } from "react-icons/fa";
 
 interface LocationData {
   address: string;
-  coordinates?: [number, number];
-  latitude?: number;
-  longitude?: number;
+  latitude: number;
+  longitude: number;
+  coordinates?: {
+    type: string;
+    coordinates: [number, number];
+  };
 }
 
 interface DealerProfile {
@@ -17,10 +20,8 @@ interface DealerProfile {
   email: string;
   phone: string;
   whatsapp: string;
-  location: string | LocationData;
+  location: LocationData; // Always an object, never a string
   profileImage: string;
-  latitude?: number | string;
-  longitude?: number | string;
 }
 
 export default function ProfilePage() {
@@ -32,7 +33,7 @@ export default function ProfilePage() {
     email: '',
     phone: '',
     whatsapp: '',
-    location: '',
+    location: { address: '', latitude: 0, longitude: 0 },
     profileImage: '',
   });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -48,7 +49,8 @@ export default function ProfilePage() {
           email: userData.email,
           phone: userData.phone || '',
           whatsapp: userData.whatsapp || '',
-          location: userData.location || '',
+          // Backend always returns location as an object, so handle it properly
+          location: userData.location || { address: '', latitude: 0, longitude: 0 },
           profileImage: userData.profileImage || '',
         };
         setProfile(profileData);
@@ -63,6 +65,17 @@ export default function ProfilePage() {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLocationChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      location: {
+        ...prev.location,
+        address: value
+      }
+    }));
   };
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -102,19 +115,14 @@ export default function ProfilePage() {
     setError(null);
 
     try {
-      // Prepare location data for the API
-      const locationData = typeof formData.location === 'string' 
-        ? formData.location 
-        : formData.location.address;
-
       const profileUpdates = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         whatsapp: formData.whatsapp,
-        location: locationData,
-        latitude: typeof formData.location === 'object' ? formData.location.latitude : undefined,
-        longitude: typeof formData.location === 'object' ? formData.location.longitude : undefined,
+        location: formData.location.address, // Extract address from location object
+        latitude: formData.location.latitude, // Extract latitude from location object
+        longitude: formData.location.longitude, // Extract longitude from location object
         profileImage: selectedImage || undefined
       };
 
@@ -236,7 +244,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
                     <MapPin className="w-4 h-4" />
-                    <span>{typeof profile.location === 'string' ? profile.location : profile.location.address}</span>
+                    <span>{profile.location?.address || 'No location set'}</span>
                   </div>
                 </div>
               </>
@@ -329,16 +337,9 @@ export default function ProfilePage() {
                   type="text"
                   name="location"
                   readOnly
-                  value={typeof formData.location === 'string' ? formData.location : formData.location?.address || ''}
-                  onChange={(e) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      location: typeof prev.location === 'string' 
-                        ? e.target.value 
-                        : { ...prev.location as LocationData, address: e.target.value }
-                    }));
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  value={formData.location?.address || ''}
+                  onChange={handleLocationChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-gray-50"
                   placeholder="Enter your location"
                 />
               </div>
