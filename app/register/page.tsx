@@ -245,6 +245,18 @@ export default function Register() {
     );
   };
 
+  // Handle phone number formatting - ensure it only contains digits
+  const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove all non-digits
+    setPhone(value);
+  };
+
+  // Handle WhatsApp number formatting - ensure it only contains digits
+  const handleWhatsAppChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove all non-digits
+    setWhatsapp(value);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -264,14 +276,25 @@ export default function Register() {
       return;
     }
 
+    // Validate phone numbers
+    if (phone.length < 9) {
+      setErrorMessage('Please enter a valid phone number');
+      return;
+    }
+
+    if (whatsapp.length < 9) {
+      setErrorMessage('Please enter a valid WhatsApp number');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const dealerData = {
       name,
       email,
       password,
-      phone,
-      whatsapp,
+      phone: `254${phone}`, // Prepend with 254
+      whatsapp: `254${whatsapp}`, // Prepend with 254
       location: locationData.address,
       latitude: locationData.latitude,
       longitude: locationData.longitude,
@@ -379,32 +402,56 @@ export default function Register() {
               
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-secondary">
-                  Phone
+                  Phone Number
                 </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                />
+                <div className="relative mt-1">
+                  <div className="flex">
+                    <div className="flex items-center px-3 border border-r-0 border-neutral-300 rounded-l-md bg-neutral-50">
+                      <span className="text-sm text-secondary">+254</span>
+                    </div>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="712345678"
+                      required
+                      value={phone}
+                      onChange={handlePhoneChange}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-r-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      maxLength={9}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-secondary-light">
+                    Enter your phone number without the country code
+                  </p>
+                </div>
               </div>
               
               <div>
                 <label htmlFor="whatsapp" className="block text-sm font-medium text-secondary">
-                  WhatsApp
+                  WhatsApp Number
                 </label>
-                <input
-                  id="whatsapp"
-                  name="whatsapp"
-                  type="tel"
-                  required
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                />
+                <div className="relative mt-1">
+                  <div className="flex">
+                    <div className="flex items-center px-3 border border-r-0 border-neutral-300 rounded-l-md bg-neutral-50">
+                      <span className="text-sm text-secondary">+254</span>
+                    </div>
+                    <input
+                      id="whatsapp"
+                      name="whatsapp"
+                      type="tel"
+                      placeholder="712345678"
+                      required
+                      value={whatsapp}
+                      onChange={handleWhatsAppChange}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-r-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      maxLength={9}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-secondary-light">
+                    Enter your WhatsApp number without the country code
+                  </p>
+                </div>
               </div>
               
               {/* Enhanced Location Section with Embedded Map */}
