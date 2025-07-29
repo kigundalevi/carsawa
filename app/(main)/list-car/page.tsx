@@ -21,7 +21,7 @@ interface CarFormData {
   safetyFeatures: string[];
   comfortFeatures: string[];
   images: File[];
-  status: 'Available' | 'Sold' | 'Reserved';
+  status: 'Available' | 'Sold' | 'Reserved'|'shipping';
 }
 
 export default function ListCarPage() {
@@ -407,6 +407,7 @@ export default function ListCarPage() {
               <option value="Available">Available</option>
               <option value="Sold">Sold</option>
               <option value="Reserved">Reserved</option>
+              <option value="Shipping">Shipping</option>
             </select>
           </div>
         </div>
