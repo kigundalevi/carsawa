@@ -293,8 +293,8 @@ export default function Register() {
       name,
       email,
       password,
-      phone: `254${phone}`, // Prepend with 254
-      whatsapp: `254${whatsapp}`, // Prepend with 254
+      phone: `+254${phone}`, // Prepend with 254
+      whatsapp: `+254${whatsapp}`, // Prepend with 254
       location: locationData.address,
       latitude: locationData.latitude,
       longitude: locationData.longitude,
