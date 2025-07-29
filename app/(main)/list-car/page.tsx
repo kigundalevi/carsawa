@@ -148,29 +148,33 @@ export default function ListCarPage() {
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
+  
     const files = Array.from(e.target.files);
     const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
     if (invalidFiles.length > 0) {
       setError('Please select only image files (JPEG, PNG, etc.)');
       return;
     }
-
+  
     const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
       setError('Some images exceed the maximum file size of 5MB');
       return;
     }
-
+  
     if (formData.images.length + files.length > 10) {
       setError('You can upload a maximum of 10 images');
       return;
     }
-
+  
     setError(null);
-    setFormData(prev => ({ ...prev, images: [...prev.images, ...files] }));
+    
+    // Prepend new files to the beginning of the images array
+    setFormData(prev => ({ ...prev, images: [...files, ...prev.images] }));
+    
+    // Create preview URLs for new files and prepend them
     const newPreviewUrls = files.map(file => URL.createObjectURL(file));
-    setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+    setPreviewUrls(prev => [...newPreviewUrls, ...prev]);
   };
 
   const removeImage = (index: number) => {
